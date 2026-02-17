@@ -1,9 +1,7 @@
 package config
 
 import (
-	"crypto/md5"
 	"encoding/base64"
-	"fmt"
 	"strings"
 )
 
@@ -29,7 +27,7 @@ type ClientData struct {
 // Compute fills derived fields from package name and app name
 func (cd *ClientData) Compute() {
 	// IDENTITY = base64(package_name)
-	Identity = base64.StdEncoding.EncodeToString([]byte(cd.PackageName))
+	cd.Identity = base64.StdEncoding.EncodeToString([]byte(cd.PackageName))
 
 	// DOT_COUNT = number of '.' in package name (excluding last segment)
 	parts := strings.Split(cd.PackageName, ".")

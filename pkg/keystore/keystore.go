@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/atlas/flavor-gen/pkg/config"
+	"github.com/ZenDeveloper7/flavour-gen/pkg/config"
 )
 
 // Generate creates a Java keystore (JKS) for the given client.

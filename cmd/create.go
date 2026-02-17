@@ -5,17 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 
-	"github.com/atlas/flavor-gen/pkg/config"
-	"github.com/atlas/flavor-gen/pkg/flavor"
-	"github.com/atlas/flavor-gen/pkg/icon"
-	"github.com/atlas/flavor-gen/pkg/keystore"
-	"github.com/atlas/flavor-gen/pkg/gradle"
+	"github.com/ZenDeveloper7/flavour-gen/pkg/config"
+	"github.com/ZenDeveloper7/flavour-gen/pkg/flavor"
+	"github.com/ZenDeveloper7/flavour-gen/pkg/icon"
+	"github.com/ZenDeveloper7/flavour-gen/pkg/keystore"
 )
 
 var (
@@ -116,13 +116,11 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("background color: %w", err)
 	}
 
-	// Generate app icon (adaptive + legacy)
 	iconPaths, err := icon.GenerateAppIcon(logoPath, clientData.ArchiveBasename, outputDir, bg, dryRun)
 	if err != nil {
 		return fmt.Errorf("app icon: %w", err)
 	}
 
-	// Generate notification icon (transparent)
 	notifPath, err := icon.GenerateNotificationIcon(logoPath, clientData.ArchiveBasename, outputDir, dryRun)
 	if err != nil {
 		return fmt.Errorf("notification icon: %w", err)
@@ -149,15 +147,17 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	if verbose {
 		fmt.Println("[INFO] Generating keystore...")
 	}
-	keystorePath, err := keystore.Generate(clientData.ArchiveBasename, outputDir, dryRun)
+	keystorePath, err := keystore.Generate(clientData, outputDir, dryRun)
 	if err != nil {
 		return fmt.Errorf("keystore: %w", err)
 	}
+	if verbose && keystorePath != "" {
+		fmt.Printf("[INFO] Keystore: %s\n", keystorePath)
+	}
 
-	// Step 7: Copy google-services.json
+	// Step 7: Copy google-services.json if available and firebase URL provided
 	if clientData.FirebaseURL != "" {
-		// Assume google-services.json is in the template sample folder
-		src := filepath.Join("templates", "appx_theme"+string(rune(themeID))+"_sample", "google-services.json")
+		src := filepath.Join("templates", fmt.Sprintf("appx_theme%d_sample", themeID), "google-services.json")
 		dst := filepath.Join(outputDir, "app/src", clientData.ArchiveBasename, "google-services.json")
 		if _, err := os.Stat(src); err == nil {
 			if !dryRun {
@@ -166,10 +166,10 @@ func runCreate(cmd *cobra.Command, args []string) error {
 				}
 			}
 			if verbose {
-				fmt.Printf("[INFO] google-services.json copied\n")
+				fmt.Println("[INFO] google-services.json copied")
 			}
 		} else if verbose {
-			fmt.Printf("[WARN] google-services.json not found in theme template\n")
+			fmt.Println("[WARN] google-services.json not found in theme template")
 		}
 	}
 
@@ -181,12 +181,12 @@ func runCreate(cmd *cobra.Command, args []string) error {
 }
 
 func checkPrerequisites() error {
-	// Check keytool
-	if err := runCmd("keytool", "-version"); err != nil {
+	// Check keytool exists
+	if _, err := exec.LookPath("keytool"); err != nil {
 		return errors.New("keytool not installed. Install Java JDK")
 	}
-	// Check gradle
-	if err := runCmd("gradle", "--version"); err != nil {
+	// Check gradle exists (optional for validation)
+	if _, err := exec.LookPath("gradle"); err != nil {
 		return errors.New("gradle not installed. Install Gradle SDK")
 	}
 	return nil
@@ -201,7 +201,6 @@ func loadClientData(path string) (*config.ClientData, error) {
 	if err := json.Unmarshal(data, &cd); err != nil {
 		return nil, err
 	}
-	// Compute fields
 	cd.Compute()
 	return &cd, nil
 }
@@ -212,11 +211,4 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, in, 0644)
-}
-
-// runCmd executes a command and returns error if non-zero exit
-func runCmd(name string, args ...string) error {
-	// We'll just check if the binary exists in PATH for now
-	_, err := exec.LookPath(name)
-	return err
 }

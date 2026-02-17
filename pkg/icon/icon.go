@@ -1,13 +1,11 @@
 package icon
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/png"
-	_ "golang.org/x/image/webp"
 	"os"
 	"path/filepath"
 
@@ -18,7 +16,6 @@ import (
 func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGBA, error) {
 	var target color.RGBA
 	if bgColor != "" {
-		// Parse hex #RRGGBB
 		if len(bgColor) == 7 && bgColor[0] == '#' {
 			r := parseHex(bgColor[1:3])
 			g := parseHex(bgColor[3:5])
@@ -37,18 +34,11 @@ func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGB
 		if w == 0 || h == 0 {
 			return target, fmt.Errorf("invalid image size")
 		}
-		// Sample corners: (0,0), (w-1,0), (0,h-1), (w-1,h-1)
-		corners := []image.Point{
-			{X: 0, Y: 0},
-			{X: w - 1, Y: 0},
-			{X: 0, Y: h - 1},
-			{X: w - 1, Y: h - 1},
-		}
+		corners := []image.Point{{0, 0}, {w - 1, 0}, {0, h - 1}, {w - 1, h - 1}}
 		var rSum, gSum, bSum, count int
 		for _, p := range corners {
 			c := img.At(p.X, p.Y)
 			r, g, b, _ := c.RGBA()
-			// Convert from 16-bit [0,65535] to 8-bit
 			rSum += int(r >> 8)
 			gSum += int(g >> 8)
 			bSum += int(b >> 8)
@@ -57,15 +47,8 @@ func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGB
 		if count == 0 {
 			return target, fmt.Errorf("no corner samples")
 		}
-		avg := color.RGBA{
-			R: uint8(rSum / count),
-			G: uint8(gSum / count),
-			B: uint8(bSum / count),
-			A: 255,
-		}
-		target = avg
+		target = color.RGBA{R: uint8(rSum / count), G: uint8(gSum / count), B: uint8(bSum / count), A: 255}
 	} else {
-		// Default white
 		target = color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	}
 	return target, nil
@@ -96,29 +79,20 @@ type IconPaths struct {
 func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun bool) (IconPaths, error) {
 	var paths IconPaths
 
-	// Load logo
 	logo, err := imaging.Open(logoPath)
 	if err != nil {
 		return paths, fmt.Errorf("load logo: %w", err)
 	}
-	// Resize to 512x512 (foreground)
 	fg := imaging.Resize(logo, 512, 512, imaging.Lanczos)
 
-	// Create adaptive icon layers
-	// Background layer: solid color (bg)
 	bgImg := image.NewRGBA(image.Rect(0, 0, 512, 512))
 	draw.Draw(bgImg, bgImg.Bounds(), &image.Uniform{C: bg}, image.Point{}, draw.Src)
 
-	// Composite foreground centered (assuming transparent PNG)
-	offset := (512 - fg.Bounds().Dx()) / 2
-	_ = offset // simplify: center
-	// For simplicity, draw foreground onto background (mask not handled)
 	combined := image.NewRGBA(bgImg.Bounds())
 	draw.Draw(combined, bgImg.Bounds(), bgImg, image.Point{}, draw.Src)
-	// Paste foreground (respect alpha)
+	offset := (512 - fg.Bounds().Dx()) / 2
 	draw.Draw(combined, fg.Bounds().Add(image.Pt(offset, offset)), fg, image.Point{}, draw.Over)
 
-	// Write adaptive icon XML definition in res/mipmap-anydpi-v26/
 	if !dryRun {
 		xmlDir := filepath.Join(outputDir, "app/src", baseName, "res/mipmap-anydpi-v26")
 		if err := os.MkdirAll(xmlDir, 0755); err != nil {
@@ -132,7 +106,6 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 		paths.AdaptiveXML = xmlPath
 	}
 
-	// Generate legacy PNGs at multiple densities
 	densities := []struct {
 		name string
 		size int
@@ -145,7 +118,6 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 	}
 	outputBase := filepath.Join(outputDir, "app/src", baseName, "res")
 	for _, d := range densities {
-		// Resize combined image to density size
 		img := imaging.Resize(combined, d.size, d.size, imaging.Lanczos)
 		dir := filepath.Join(outputBase, "mipmap-"+d.name)
 		if !dryRun {
@@ -161,18 +133,18 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 			if err := png.Encode(f, img); err != nil {
 				return paths, err
 			}
-		}
-		switch d.name {
-		case "mdpi":
-			paths.LegacyMDpi = outPath
-		case "hdpi":
-			paths.LegacyHdpi = outPath
-		case "xhdpi":
-			paths.LegacyXhdpi = outPath
-		case "xxhdpi":
-			paths.LegacyXXhdpi = outPath
-		case "xxxhdpi":
-			paths.LegacyXXXhdpi = outPath
+			switch d.name {
+			case "mdpi":
+				paths.LegacyMDpi = outPath
+			case "hdpi":
+				paths.LegacyHdpi = outPath
+			case "xhdpi":
+				paths.LegacyXhdpi = outPath
+			case "xxhdpi":
+				paths.LegacyXXhdpi = outPath
+			case "xxxhdpi":
+				paths.LegacyXXXhdpi = outPath
+			}
 		}
 	}
 
@@ -189,14 +161,10 @@ func generateAdaptiveXML(name string) string {
 
 // GenerateNotificationIcon creates a transparent notification icon
 func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool) (string, error) {
-	// Load logo
 	logo, err := imaging.Open(logoPath)
 	if err != nil {
 		return "", fmt.Errorf("load logo: %w", err)
 	}
-	// Remove background? We'll keep alpha as is
-	// Resize to standard notification size (24dp at xxxhdpi ~ 96px)
-	// We'll generate at 24, 36, 48, 72, 96 for densities
 	densities := []struct{ name string; size int }{
 		{"mdpi", 24},
 		{"hdpi", 36},
@@ -219,20 +187,12 @@ func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool)
 				return "", err
 			}
 			defer f.Close()
-			// Encode as WebP
-			if err := encodeWebP(f, img); err != nil {
+			// Encode as PNG for now (MVP)
+			if err := png.Encode(f, img); err != nil {
 				return "", err
 			}
 			lastPath = outPath
 		}
 	}
 	return lastPath, nil
-}
-
-func encodeWebP(w *os.File, img image.Image) error {
-	// The github.com/chai2010/webp package provides Encode but we'll use a simple workaround:
-	// For MVP, encode as PNG instead and just change extension to .webp?
-	// That's not valid, but for prototype we could keep PNG. But spec says WEBP.
-	// For now, just PNG fallback to keep code runnable without heavy deps
-	return png.Encode(w, img)
 }

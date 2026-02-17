@@ -1,22 +1,25 @@
 package flavor
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/atlas/flavor-gen/pkg/config"
+	"github.com/ZenDeveloper7/flavour-gen/pkg/config"
+	"golang.org/x/exp/slices"
 )
 
 var (
 	templatesDir = "templates"
 )
 
+type ThemeFiles struct {
+	ThemeSampleDir string
+	GradleFile     string
+}
+
 // DuplicateTheme copies the theme sample folder and writes the Gradle flavor file.
-// Returns the paths to created files.
 func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *config.ClientData, dryRun bool) (ThemeFiles, error) {
 	var files ThemeFiles
 
@@ -26,20 +29,17 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 		return files, fmt.Errorf("theme sample folder not found: %s", srcThemeDir)
 	}
 
-	// Destination: app/src/<archiveBasename>/
 	dstSrcDir := filepath.Join(outputDir, "app/src", archiveBasename)
 	if !dryRun {
 		if err := os.MkdirAll(dstSrcDir, 0755); err != nil {
 			return files, err
 		}
-		// Copy entire folder contents
 		if err := copyDir(srcThemeDir, dstSrcDir); err != nil {
 			return files, err
 		}
 	}
 	files.ThemeSampleDir = dstSrcDir
 
-	// Copy the theme gradle file to app/flavours/
 	srcGradle := filepath.Join(templatesDir, fmt.Sprintf("appx_theme%d.gradle", themeID))
 	dstGradleDir := filepath.Join(outputDir, "app/flavours")
 	if !dryRun {
@@ -50,7 +50,6 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 		if err != nil {
 			return files, fmt.Errorf("read theme gradle: %w", err)
 		}
-		// Replace placeholders
 		text := replacePlaceholders(string(content), cd)
 		dstGradle := filepath.Join(dstGradleDir, archiveBasename+".gradle")
 		if err := os.WriteFile(dstGradle, []byte(text), 0644); err != nil {
@@ -65,7 +64,6 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 }
 
 func replacePlaceholders(text string, cd *config.ClientData) string {
-	// Common placeholders
 	text = strings.ReplaceAll(text, "${APP_NAME}", cd.AppName)
 	text = strings.ReplaceAll(text, "${ARCHIVE_BASENAME}", cd.ArchiveBasename)
 	text = strings.ReplaceAll(text, "${PACKAGE_NAME}", cd.PackageName)
@@ -80,7 +78,6 @@ func replacePlaceholders(text string, cd *config.ClientData) string {
 	text = strings.ReplaceAll(text, "${DOT_COUNT}", fmt.Sprintf("%d", cd.DotCount))
 	text = strings.ReplaceAll(text, "${ALT_APP_NAME}", cd.AltAppName)
 	text = strings.ReplaceAll(text, "${DOWNLOAD_FOLDER_NAME}", cd.DownloadFolder)
-
 	return text
 }
 
@@ -102,17 +99,14 @@ func copyDir(src, dst string) error {
 				return err
 			}
 		} else {
-			// Copy file
 			in, err := os.ReadFile(srcPath)
 			if err != nil {
 				return err
 			}
-			// Also replace placeholders in files that are likely templates
 			text := string(in)
-			// Heuristic: only replace in files with certain extensions
 			ext := strings.ToLower(filepath.Ext(entry.Name()))
 			if slices.Contains([]string{".gradle", ".xml", ".json", ".properties", ".kt", ".java", ".txt", ".md"}, ext) {
-				// Try to load as JSON for google-services.json? For now keep as text replace
+				// For simplicity, replace placeholders even if cd is empty; harmless
 				text = replacePlaceholders(text, &config.ClientData{})
 			}
 			if err := os.WriteFile(dstPath, []byte(text), 0644); err != nil {
@@ -123,7 +117,7 @@ func copyDir(src, dst string) error {
 	return nil
 }
 
-// ListThemes scans templates dir for theme IDs (based on appx_theme<N>_sample folders)
+// ListThemes scans templates dir for theme IDs.
 func ListThemes() ([]int, error) {
 	var themes []int
 	entries, err := os.ReadDir(templatesDir)
@@ -140,9 +134,4 @@ func ListThemes() ([]int, error) {
 		}
 	}
 	return themes, nil
-}
-
-type ThemeFiles struct {
-	ThemeSampleDir string
-	GradleFile     string
 }
