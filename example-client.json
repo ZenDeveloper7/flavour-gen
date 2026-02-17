@@ -1,0 +1,12 @@
+{
+  "app_name": "Physics Setu",
+  "archivebasename": "physics_setu",
+  "package_name": "com.ydcfzb.zgizxw",
+  "version_name": "1.0.0",
+  "version_code": 0,
+  "base_url": "https://physicssetuapi.akamai.net.in/",
+  "test_base_url": "https://physicssetuapi.akamai.net.in/",
+  "firebase_url": "https://physicssetuappx.firebaseio.com/",
+  "dynamic_link_domain": "https://physicssetu.classx.co.in/",
+  "dynamic_link_prefix": "https://physicssetu.page.link"
+}

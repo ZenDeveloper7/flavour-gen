@@ -1,0 +1,13 @@
+android {
+    flavorDimensions "default"
+    productFlavors {
+        ${ARCHIVE_BASENAME} {
+            dimension "default"
+            applicationId "${PACKAGE_NAME}"
+            versionName "${VERSION_NAME}"
+            versionCode ${VERSION_CODE}
+            resValue "string", "app_name", "${APP_NAME}"
+            // Additional app-level config can go here
+        }
+    }
+}
