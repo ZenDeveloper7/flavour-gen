@@ -65,9 +65,9 @@ jobs:
       - name: Assemble release assets
         run: |
           mkdir -p assets
-          cp artifacts/flavour-gen-linux-amd64/flavour-gen-linux-amd64 assets/
-          cp artifacts/flavour-gen-darwin-amd64/flavour-gen-darwin-amd64 assets/
-          cp artifacts/flavour-gen-windows-amd64/flavour-gen-windows-amd64.exe assets/
+          cp artifacts/flavour-gen-linux-amd64 assets/
+          cp artifacts/flavour-gen-darwin-amd64 assets/
+          cp artifacts/flavour-gen-windows-amd64.exe assets/
           cd assets && sha256sum * > checksums.txt
 
       - name: Create Release
