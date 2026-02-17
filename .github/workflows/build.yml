@@ -1,0 +1,137 @@
+name: Build and Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [amd64]
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            binary: flavour-gen-linux-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            binary: flavour-gen-darwin-amd64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            binary: flavour-gen-windows-amd64.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build
+        run: |
+          go build -o ${{ matrix.binary }} .
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: ${{ matrix.binary }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble release assets
+        run: |
+          mkdir -p assets
+          cp artifacts/flavour-gen-linux-amd64/flavour-gen-linux-amd64 assets/
+          cp artifacts/flavour-gen-darwin-amd64/flavour-gen-darwin-amd64 assets/
+          cp artifacts/flavour-gen-windows-amd64/flavour-gen-windows-amd64.exe assets/
+          cd assets && sha256sum * > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            Automated build release.
+          draft: true
+          files: |
+            assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-pages:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare public folder
+        run: |
+          mkdir -p public
+          cp artifacts/flavour-gen-linux-amd64/flavour-gen-linux-amd64 public/
+          cp artifacts/flavour-gen-darwin-amd64/flavour-gen-darwin-amd64 public/
+          cp artifacts/flavour-gen-windows-amd64/flavour-gen-windows-amd64.exe public/
+          cd public && sha256sum * > checksums.txt
+          # Create a simple install script
+          cat > install.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          ARCH="$(uname -m)"
+          case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            arm64) ARCH="arm64" ;;
+            *) echo "Unsupported arch: $ARCH"; exit 1 ;;
+          esac
+          BINARY="flavour-gen-$OS-$ARCH"
+          [ "$OS" = "windows" ] && BINARY="$BINARY.exe"
+          URL="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/gh-pages/$BINARY"
+          echo "Downloading $URL..."
+          curl -sSL "$URL" -o "/tmp/$BINARY" || { echo "Download failed"; exit 1; }
+          chmod +x "/tmp/$BINARY"
+          DEST="/usr/local/bin/flavour-gen"
+          if [ -w "$(dirname "$DEST")" ]; then
+            sudo mv "/tmp/$BINARY" "$DEST"
+          else
+            mv "/tmp/$BINARY" "$DEST"
+          fi
+          echo "Installed to $DEST"
+          EOF
+          chmod +x install.sh
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          force_orphan: true   # create gh-pages branch if it doesn't exist
