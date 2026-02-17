@@ -1,5 +1,10 @@
 # Flavour Generator CLI
 
+[![Build](https://github.com/ZenDeveloper7/flavour-gen/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/ZenDeveloper7/flavour-gen/actions/workflows/build.yml)
+[![Go](https://img.shields.io/badge/Go-1.21-blue.svg)](https://golang.org)
+[![License](https://img.shields.io/github/license/ZenDeveloper7/flavour-gen.svg)](https://github.com/ZenDeveloper7/flavour-gen/blob/master/LICENSE)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/ZenDeveloper7/flavour-gen)
+
 A Go-based CLI tool to generate complete Android app flavor packages, including icons, keystores, and Gradle configuration.
 
 ## Features
