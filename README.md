@@ -44,9 +44,9 @@ See `templates/client-data-template.json` for required fields. Example:
 
 ```json
 {
-  "app_name": "Physics Setu",
-  "archivebasename": "physics_setu",
-  "package_name": "com.ydcfzb.zgizxw",
+  "app_name": "App Name",
+  "archivebasename": "app_name",
+  "package_name": "com.package.name",
   "version_name": "1.0.0",
   "version_code": 0,
   "base_url": "https://...",
