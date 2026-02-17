@@ -19,17 +19,32 @@ A Go-based CLI tool to generate complete Android app flavor packages, including 
 
 ## Prerequisites
 
-- Go 1.21+
-- Java JDK (`keytool`)
-- Gradle (optional for validation)
+- **For prebuilt binary:** `curl`, `bash`, `sudo` (optional) – no Go needed.
+- **For building from source:** Go 1.21+, Java JDK (`keytool`), Gradle (optional for validation).
 
-## Build
+## Installation
+
+### Option 1 – One‑line install (prebuilt)
+
+```bash
+curl -sSL https://ZenDeveloper7.github.io/flavour-gen/install.sh | bash
+```
+
+This installs the latest binary to `/usr/local/bin/flavour-gen` (or `~/.local/bin` if not root).
+
+### Option 2 – Build from source
 
 ```bash
 git clone https://github.com/ZenDeveloper7/flavour-gen.git
 cd flavour-gen
 go mod tidy
 go build -o flavour-gen .
+```
+
+Move the binary to a directory in your `PATH`:
+
+```bash
+sudo mv flavour-gen /usr/local/bin/
 ```
 
 ## Usage
@@ -100,4 +115,4 @@ Run dry‑run to inspect actions without writing files:
 
 ## License
 
-MIT (or choose your own). Contributions welcome!
+MIT. Contributions welcome!
