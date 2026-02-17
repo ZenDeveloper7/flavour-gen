@@ -98,9 +98,9 @@ jobs:
       - name: Prepare public folder
         run: |
           mkdir -p public
-          cp artifacts/flavour-gen-linux-amd64/flavour-gen-linux-amd64 public/
-          cp artifacts/flavour-gen-darwin-amd64/flavour-gen-darwin-amd64 public/
-          cp artifacts/flavour-gen-windows-amd64/flavour-gen-windows-amd64.exe public/
+          cp artifacts/flavour-gen-linux-amd64 public/
+          cp artifacts/flavour-gen-darwin-amd64 public/
+          cp artifacts/flavour-gen-windows-amd64.exe public/
           cd public && sha256sum * > checksums.txt
           # Create a simple install script
           cat > install.sh << 'EOF'
