@@ -1,5 +1,6 @@
 # Flavour Generator CLI
 
+[![Release](https://img.shields.io/github/v/release/ZenDeveloper7/flavour-gen-releases?include_prereleases&label=release)](https://github.com/ZenDeveloper7/flavour-gen-releases/releases)
 [![Go](https://img.shields.io/badge/Go-1.21-blue.svg)](https://golang.org)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/ZenDeveloper7/flavour-gen-releases)
 
