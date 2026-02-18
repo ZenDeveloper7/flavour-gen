@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/ZenDeveloper7/flavour-gen/pkg/config"
@@ -76,6 +77,11 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 
 		text := string(gradleContent)
 
+		// Replace the education comment if education_number is provided
+		if cd.EducationNumber > 0 {
+			text = regexp.MustCompile(`//Education \d+`).ReplaceAllString(text, fmt.Sprintf("//Education %d", cd.EducationNumber))
+		}
+
 		// Replace the flavor name (e.g., appx_theme1 -> knr_logics_clone)
 		// This handles both the flavor block name and archivesBaseName
 		text = strings.ReplaceAll(text, fmt.Sprintf("appx_theme%d", themeID), cd.ArchiveBasename)
@@ -115,6 +121,75 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 	files.GradleFile = dstGradle
 
 	return files, nil
+}
+
+// AddFlavorToBuildType adds the new flavor signing config to build_type.gradle
+func AddFlavorToBuildType(archiveBasename string, projectRoot string, dryRun bool) error {
+	buildTypePath := filepath.Join(projectRoot, "app", "build_type.gradle")
+	if _, err := os.Stat(buildTypePath); err != nil {
+		return fmt.Errorf("build_type.gradle not found: %w", err)
+	}
+
+	content, err := os.ReadFile(buildTypePath)
+	if err != nil {
+		return err
+	}
+
+	// Check if already exists
+	if strings.Contains(string(content), fmt.Sprintf("productFlavors.%s.signingConfig", archiveBasename)) {
+		return nil // Already exists
+	}
+
+	// Add the entry before the closing brace of release block
+	newEntry := fmt.Sprintf(`            productFlavors.%s.signingConfig signingConfigs.%s`, archiveBasename, archiveBasename)
+	text := string(content)
+	
+	// Find the last closing brace and insert before it
+	lines := strings.Split(text, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.TrimSpace(lines[i]) == "}" {
+			// Insert before this closing brace
+			var newLines []string
+			newLines = append(newLines, lines[:i]...)
+			newLines = append(newLines, newEntry)
+			newLines = append(newLines, lines[i:]...)
+			text = strings.Join(newLines, "\n")
+			break
+		}
+	}
+
+	if !dryRun {
+		return os.WriteFile(buildTypePath, []byte(text), 0644)
+	}
+	return nil
+}
+
+// AddFlavorToFlavours adds the new flavor to flavours.gradle
+func AddFlavorToFlavours(archiveBasename string, projectRoot string, dryRun bool) error {
+	flavoursPath := filepath.Join(projectRoot, "app", "flavours.gradle")
+	if _, err := os.Stat(flavoursPath); err != nil {
+		return fmt.Errorf("flavours.gradle not found: %w", err)
+	}
+
+	content, err := os.ReadFile(flavoursPath)
+	if err != nil {
+		return err
+	}
+
+	// Check if already exists
+	if strings.Contains(string(content), fmt.Sprintf("flavours/%s.gradle", archiveBasename)) {
+		return nil // Already exists
+	}
+
+	// Add the entry at the end
+	newEntry := fmt.Sprintf(`apply from:  './flavours/%s.gradle'`, archiveBasename)
+	text := string(content)
+	text = strings.TrimRight(text, "\n") + "\n" + newEntry + "\n"
+
+	if !dryRun {
+		return os.WriteFile(flavoursPath, []byte(text), 0644)
+	}
+	return nil
 }
 
 // replaceGradleLine replaces a simple key "value" line

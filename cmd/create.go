@@ -46,7 +46,7 @@ var createCmd = &cobra.Command{
 
 func init() {
 	createCmd.Flags().StringVar(&inputPath, "input", "", "Input folder containing data.json and google-services.json [required]")
-	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [required]")
+	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [optional - will use app_logo from data.json if not provided]")
 	createCmd.Flags().StringVar(&bgColor, "bg-color", "", "Background color #RRGGBB (auto-detected if empty)")
 	createCmd.Flags().BoolVar(&autoBG, "auto-bg", true, "Auto-detect background from logo")
 	createCmd.Flags().StringVar(&outputDir, "output-dir", "./output", "Output directory")
@@ -54,7 +54,6 @@ func init() {
 	createCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose logging")
 
 	createCmd.MarkFlagRequired("input")
-	createCmd.MarkFlagRequired("logo")
 }
 
 func runCreate(cmd *cobra.Command, args []string) error {
@@ -89,7 +88,24 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return errors.New("theme_id is required in data.json")
 	}
 
-	// Find Android project path - use parent of output-dir
+	// Validate app_logo is provided
+	if clientData.AppLogo == "" {
+		return errors.New("app_logo is required in data.json")
+	}
+
+	// Resolve app_logo path - it's relative to input folder
+	logoFromData := filepath.Join(inputPath, clientData.AppLogo)
+	if _, err := os.Stat(logoFromData); err == nil {
+		// If app_logo exists in input folder, use it instead of --logo flag
+		logoPath = logoFromData
+	}
+
+	// Validate logo is available
+	if logoPath == "" {
+		return errors.New("logo not found. Use --logo flag or specify app_logo in data.json")
+	}
+
+	// Validate logo file
 	// outputDir = /path/to/project/output -> project = /path/to/project
 	androidProject := filepath.Dir(outputDir)
 	// Handle case where output-dir is relative
@@ -188,6 +204,16 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	if verbose {
 		infoC.Printf("[INFO] Theme files: %v\n", themeFiles.GradleFile)
+	}
+
+	// Step 5b: Add flavor to build_type.gradle and flavours.gradle
+	if !dryRun {
+		if err := flavor.AddFlavorToBuildType(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
+			warnC.Printf("[WARN] Failed to update build_type.gradle: %v\n", err)
+		}
+		if err := flavor.AddFlavorToFlavours(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
+			warnC.Printf("[WARN] Failed to update flavours.gradle: %v\n", err)
+		}
 	}
 
 	// Step 6: Generate keystore

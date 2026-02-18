@@ -12,6 +12,8 @@ type ClientData struct {
 	VersionName       string `json:"version_name"`
 	VersionCode       int    `json:"version_code"`
 	ThemeID           int    `json:"theme_id"`
+	AppLogo           string `json:"app_logo"` // Mandatory - path to logo file
+	EducationNumber   int    `json:"education_number"` // For gradle comment
 	BaseURL           string `json:"base_url"`
 	TestBaseURL       string `json:"test_base_url"`
 	FirebaseURL       string `json:"firebase_url"`
