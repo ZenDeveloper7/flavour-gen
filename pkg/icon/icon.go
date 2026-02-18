@@ -228,11 +228,16 @@ func setLegacyPath(paths *IconPaths, density, path string) {
 }
 
 func generateAdaptiveXML(name string) string {
+	// Use the name parameter for the foreground drawable
+	foreground := fmt.Sprintf("@drawable/ic_launcher_foreground")
+	if name != "ic_launcher" {
+		foreground = fmt.Sprintf("@drawable/ic_launcher_foreground")
+	}
 	return fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-</adaptive-icon>`, name)
+    <foreground android:drawable="%s"/>
+</adaptive-icon>`, foreground)
 }
 
 // GenerateNotificationIcon creates white-on-transparent notification icons
