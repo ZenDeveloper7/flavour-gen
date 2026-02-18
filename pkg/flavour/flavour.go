@@ -126,12 +126,12 @@ func processGradle(text string, themeID int, cd *config.ClientData) string {
 	text = replaceBuildConfig(text, "String", "DYNAMIC_LINK_DOMAIN", cd.DynamicLinkDomain)
 	text = replaceBuildConfig(text, "String", "DYNAMIC_LINK_PREFIX", cd.DynamicLinkPrefix)
 
-	// Replace buildConfigField int values
+	// Replace buildConfigField int values (DOT_COUNT)
 	text = replaceBuildConfigInt(text, "DOT_COUNT", cd.DotCount)
 
-	// Add DOT_COUNT if missing
+	// Add DOT_COUNT after DYNAMIC_LINK_PREFIX if missing
 	if cd.DotCount > 0 && !strings.Contains(text, "DOT_COUNT") {
-		text = addBuildConfigInt(text, "DOT_COUNT", cd.DotCount)
+		text = addBuildConfigAfter(text, "DYNAMIC_LINK_PREFIX", "DOT_COUNT", cd.DotCount)
 	}
 
 	return text
@@ -199,6 +199,26 @@ func replaceBuildConfigInt(text, key string, newValue int) string {
 	oldPattern := fmt.Sprintf(`buildConfigField("int", "%s", %d)`, key, old)
 	newPattern := fmt.Sprintf(`buildConfigField("int", "%s", %d)`, key, newValue)
 	return strings.ReplaceAll(text, oldPattern, newPattern)
+}
+
+// addBuildConfigAfter adds a new buildConfigField int after a specific key
+func addBuildConfigAfter(text, afterKey, key string, value int) string {
+	newEntry := fmt.Sprintf(`            buildConfigField("int", "%s", %d)`, key, value)
+	lines := strings.Split(text, "\n")
+	
+	// Find the line with the specified key and add after it
+	for i, line := range lines {
+		if strings.Contains(line, fmt.Sprintf(`buildConfigField("String", "%s"`, afterKey)) {
+			var newLines []string
+			newLines = append(newLines, lines[:i+1]...)
+			newLines = append(newLines, newEntry)
+			newLines = append(newLines, lines[i+1:]...)
+			return strings.Join(newLines, "\n")
+		}
+	}
+	
+	// Fallback: add at end
+	return text + "\n" + newEntry
 }
 
 // addBuildConfigInt adds a new buildConfigField int if it doesn't exist
