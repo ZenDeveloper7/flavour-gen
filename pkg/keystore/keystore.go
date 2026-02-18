@@ -31,7 +31,7 @@ func Generate(cd *config.ClientData, outputDir string, dryRun bool) (string, err
 		"-alias", cd.ArchiveBasename,
 		"-storepass", cd.ArchiveBasename,
 		"-keypass", cd.ArchiveBasename,
-		"-dname", fmt.Sprintf("CN=%s, OU=Development, O=Company, L=City, ST=State, C=US", cd.ArchiveBasename),
+		"-dname", fmt.Sprintf("CN=%s, OU=%s, O=%s, L=Delhi, ST=Delhi, C=IN", cd.ArchiveBasename,cd.ArchiveBasename,cd.ArchiveBasename),
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

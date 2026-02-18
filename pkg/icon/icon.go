@@ -6,11 +6,47 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 
 	"github.com/disintegration/imaging"
 )
+
+// createCircularIcon creates a circular icon by cropping the square image to a circle
+func createCircularIcon(img image.Image, size int) image.Image {
+	// Resize to target size
+	resized := imaging.Resize(img, size, size, imaging.Lanczos)
+	
+	// Create output image with transparent background
+	output := image.NewRGBA(image.Rect(0, 0, size, size))
+	
+	// Fill with white background
+	draw.Draw(output, output.Bounds(), &image.Uniform{C: color.RGBA{255, 255, 255, 255}}, image.Point{}, draw.Src)
+	
+	// Calculate center and radius
+	centerX := float64(size) / 2
+	centerY := float64(size) / 2
+	radius := float64(size) / 2
+	
+	// Copy pixels within circle
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			dx := float64(x) - centerX
+			dy := float64(y) - centerY
+			dist := math.Sqrt(dx*dx + dy*dy)
+			
+			if dist <= radius {
+				// Inside circle - copy pixel
+				pixel := resized.At(x, y)
+				output.Set(x, y, pixel)
+			}
+			// Outside circle stays transparent
+		}
+	}
+	
+	return output
+}
 
 // GetBackgroundColor returns white background by default (or custom color if provided)
 func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGBA, error) {
@@ -149,13 +185,13 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 
 	// Generate ic_launcher_round - for API 25+ (adaptive icon with round shape)
 	for _, d := range densities {
-		img := imaging.Resize(combined, d.size, d.size, imaging.Lanczos)
+		// Create circular icon
+		circularImg := createCircularIcon(combined, d.size)
 		dir := filepath.Join(resDir, "mipmap-"+d.name)
 		if !dryRun {
-			// ic_launcher_round.png - same as ic_launcher for now
 			roundPath := filepath.Join(dir, "ic_launcher_round.png")
 			if f, err := os.Create(roundPath); err == nil {
-				png.Encode(f, img)
+				png.Encode(f, circularImg)
 				f.Close()
 			}
 		}
