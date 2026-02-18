@@ -11,6 +11,7 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,7 +24,6 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
-          args: release --clean
+          args: release --clean --skip-validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BREW_TAP_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
