@@ -120,10 +120,21 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("theme %d not found in project. available: %v", clientData.ThemeID, availableThemes)
 	}
 
-	// Check for google-services.json
+	// Check for google-services.json and extract education_number
 	gsFile := filepath.Join(inputPath, "google-services.json")
-	_, err = os.Stat(gsFile)
-	hasGS := err == nil
+	hasGS := false
+	if _, err := os.Stat(gsFile); err == nil {
+		hasGS = true
+		// Extract education_number (project_number) from google-services.json
+		if eduNum, err := config.ExtractEducationNumber(gsFile); err == nil {
+			clientData.EducationNumber = eduNum
+			if verbose {
+				infoC.Printf("[INFO] Education number: %d\n", eduNum)
+			}
+		} else if verbose {
+			warnC.Printf("[WARN] Could not extract education_number: %v\n", err)
+		}
+	}
 
 	if verbose {
 		infoC.Printf("[INFO] Client: %s (%s)\n", clientData.AppName, clientData.ArchiveBasename)

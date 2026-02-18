@@ -13,16 +13,17 @@ Defines the `ClientData` struct and computes derived fields from input JSON.
 | `app_name` | string | Yes | Display name |
 | `archivebasename` | string | Yes | Archive name (e.g., `my_app`) |
 | `package_name` | string | Yes | Android package |
-| `version_name` | string | Yes | Version string |
-| `version_code` | int | Yes | Version code |
-| `theme_id` | int | Yes | Theme ID to use |
+| `theme_id` | string | Yes | Theme ID to use |
 | `app_logo` | string | Yes | Path to logo file |
-| `education_number` | int | No | Education number for gradle |
-| `base_url` | string | Yes | Production API URL |
-| `test_base_url` | string | Yes | Test API URL |
-| `firebase_url` | string | No | Firebase URL |
-| `dynamic_link_domain` | string | No | Dynamic Links domain |
-| `dynamic_link_prefix` | string | No | Dynamic Links prefix |
+| `base_url` | string | Yes | API base URL |
+
+### Optional Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `firebase_url` | string | - | Firebase URL |
+| `dynamic_link_domain` | string | - | Dynamic Links domain |
+| `dynamic_link_prefix` | string | - | Dynamic Links prefix |
 
 ## Computed Fields
 
@@ -34,6 +35,10 @@ These are automatically calculated:
 | `dot_count` | Dot count in package | count("." in package_name) |
 | `alt_app_name` | Lowercase with underscores | lowercase(spaces to underscores) |
 | `download_folder` | Archive basename | archivebasename |
+| `version_name` | Version string | "1.0.0" (default) |
+| `version_code` | Version code | 0 (default) |
+| `test_base_url` | Test API URL | base_url (default) |
+| `education_number` | From google-services.json | project_number |
 
 ## Functions
 
@@ -45,13 +50,17 @@ Calculates derived fields from input data.
 
 Validates required fields. Returns error if any required field is missing.
 
+### `ExtractEducationNumber(path string) (int, error)`
+
+Extracts education_number from google-services.json file.
+
 ## Example
 
 ```json
 {
   "app_name": "My App",
   "archivebasename": "my_app",
-  "package_name": "com.ydcfzb.zgizxw",
+  "package_name": "com.mycompany.myapp",
   "theme_id": 1,
   "app_logo": "app_logo.png",
   "base_url": "https://api.example.com/"
