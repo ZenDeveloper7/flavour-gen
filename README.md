@@ -24,27 +24,47 @@ A Go-based CLI tool to generate complete Android app flavor packages, including 
 
 ## Installation
 
-### Option 1 – One‑line install (prebuilt)
+### Quick Install (All Platforms)
 
 ```bash
-curl -sSL https://ZenDeveloper7.github.io/flavour-gen/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ZenDeveloper7/flavour-gen-releases/master/install.sh | bash
 ```
 
-This installs the latest binary to `/usr/local/bin/flavour-gen` (or `~/.local/bin` if not root).
+This downloads and installs the latest binary to `/usr/local/bin/flavour-gen`.
 
-### Option 2 – Build from source
+### Manual Download
+
+Download the latest release for your platform:
+
+- **Linux:** [flavour-gen-linux-amd64](https://github.com/ZenDeveloper7/flavour-gen-releases/raw/master/flavour-gen-linux-amd64)
+- **macOS:** [flavour-gen-darwin-amd64](https://github.com/ZenDeveloper7/flavour-gen-releases/raw/master/flavour-gen-darwin-amd64)
+- **Windows:** [flavour-gen-windows-amd64.exe](https://github.com/ZenDeveloper7/flavour-gen-releases/raw/master/flavour-gen-windows-amd64.exe)
+
+```bash
+# Linux/macOS
+chmod +x flavour-gen-linux-amd64
+sudo mv flavour-gen-linux-amd64 /usr/local/bin/flavour-gen
+
+# Windows
+move flavour-gen-windows-amd64.exe flavour-gen.exe
+```
+
+### Build from Source
 
 ```bash
 git clone https://github.com/ZenDeveloper7/flavour-gen.git
 cd flavour-gen
 go mod tidy
 go build -o flavour-gen .
+sudo mv flavour-gen /usr/local/bin/
 ```
 
-Move the binary to a directory in your `PATH`:
+### Go Install
+
+If you have Go installed:
 
 ```bash
-sudo mv flavour-gen /usr/local/bin/
+go install github.com/ZenDeveloper7/flavour-gen@latest
 ```
 
 ## Usage
@@ -100,7 +120,7 @@ output/
 ## Error Handling
 
 - `keytool not installed` → Install Java JDK
-- `gradle not installed` → Install Gradle
+- `gradle not installed` → Install Gradle (optional, only for validation)
 - `Theme {id} not found` → Check templates folder for `appx_theme{id}_sample` and `appx_theme{id}.gradle`
 - `Logo must be PNG`
 - `Cannot write to output directory`

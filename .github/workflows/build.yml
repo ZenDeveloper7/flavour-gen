@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
 
 jobs:
   build:
@@ -81,37 +80,33 @@ jobs:
           name: Release ${{ github.ref_name }}
           body: |
             Automated build release.
-          draft: true
+            Download binaries or use the install script below.
           files: |
             assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy-pages:
-    needs: release
+  push-to-releases-repo:
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Prepare public folder
+      - name: Prepare release files
         run: |
-          mkdir -p public
+          mkdir -p release-files
           # Find the actual binary files
           LINUX_BIN=$(find artifacts -name "flavour-gen-linux-amd64" -type f | head -1)
           DARWIN_BIN=$(find artifacts -name "flavour-gen-darwin-amd64" -type f | head -1)
           WINDOWS_BIN=$(find artifacts -name "flavour-gen-windows-amd64.exe" -type f | head -1)
-          cp "$LINUX_BIN" public/
-          cp "$DARWIN_BIN" public/
-          cp "$WINDOWS_BIN" public/
-          cd public && sha256sum * > checksums.txt
-          # Create a simple install script
-          cat > install.sh << 'EOF'
+          cp "$LINUX_BIN" release-files/
+          cp "$DARWIN_BIN" release-files/
+          cp "$WINDOWS_BIN" release-files/
+          # Create install script
+          cat > release-files/install.sh << 'EOF'
           #!/bin/bash
           set -e
           OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -123,7 +118,7 @@ jobs:
           esac
           BINARY="flavour-gen-$OS-$ARCH"
           [ "$OS" = "windows" ] && BINARY="$BINARY.exe"
-          URL="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/gh-pages/$BINARY"
+          URL="https://raw.githubusercontent.com/ZenDeveloper7/flavour-gen-releases/master/$BINARY"
           echo "Downloading $URL..."
           curl -sSL "$URL" -o "/tmp/$BINARY" || { echo "Download failed"; exit 1; }
           chmod +x "/tmp/$BINARY"
@@ -135,11 +130,14 @@ jobs:
           fi
           echo "Installed to $DEST"
           EOF
-          chmod +x install.sh
+          chmod +x release-files/install.sh
 
-      - name: Deploy to GitHub Pages
+      - name: Push to releases repo
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          force_orphan: true   # create gh-pages branch if it doesn't exist
+          publish_dir: ./release-files
+          force_orphan: true
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: "Release ${{ github.ref_name }}"
