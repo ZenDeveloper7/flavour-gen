@@ -17,36 +17,30 @@ flavour-gen create \
 Create a folder with required files:
 
 ```bash
-mkdir my-client
-cd my-client
+mkdir my-clients
+cd my-clients
 
-# Create data.json
+# Create data.json (single client)
 cat > data.json << 'EOF'
 {
   "app_name": "My App",
   "archivebasename": "my_app",
-  "package_name": "com.mycompany.myapp",
-  "version_name": "1.0.0",
-  "version_code": 0,
-  "theme_id": 1,
+  "package_name": "com.mycompany "theme_id":.myapp",
+  1,
   "app_logo": "app_logo.png",
-  "base_url": "https://api.myapp.com/",
-  "test_base_url": "https://api.myapp.com/"
+  "base_url": "https://api.myapp.com/"
 }
 EOF
 
 # Add logo
 cp /path/to/logo.png app_logo.png
-
-# Add google-services.json (optional)
-cp /path/to/google-services.json .
 ```
 
 ### 2. Run flavour-gen
 
 ```bash
 flavour-gen create \
-  --input ./my-client \
+  --input ./my-clients \
   --output-dir /path/to/project/app/output
 ```
 
@@ -54,16 +48,56 @@ flavour-gen create \
 
 ```bash
 ls -la /path/to/project/app/output/
-# app/
-#   keystore/my_app.jks
-#   flavours/my_app.gradle
-#   src/my_app/
-#     google-services.json
-#     res/
-#       drawable/app_logo.png
-#       drawable-*/ic_notification_icon.png
-#       mipmap-*/ic_launcher.png
 ```
+
+---
+
+## Multiple Clients
+
+You can create multiple flavors at once using an array in data.json:
+
+```bash
+mkdir my-clients
+cd my-clients
+
+# Create data.json with multiple clients
+cat > data.json << 'EOF'
+[
+  {
+    "app_name": "Client App 1",
+    "archivebasename": "client_app_1",
+    "package_name": "com.client1.app",
+    "theme_id": 1,
+    "app_logo": "logo1.png",
+    "base_url": "https://api.client1.com/"
+  },
+  {
+    "app_name": "Client App 2",
+    "archivebasename": "client_app_2",
+    "package_name": "com.client2.app",
+    "theme_id": 2,
+    "app_logo": "logo2.png",
+    "base_url": "https://api.client2.com/"
+  }
+]
+EOF
+
+# Add logos
+cp /path/to/logo1.png logo1.png
+cp /path/to/logo2.png logo2.png
+```
+
+Then run:
+
+```bash
+flavour-gen create \
+  --input ./my-clients \
+  --output-dir /path/to/project/app/output
+```
+
+This will create both flavors in the output directory.
+
+---
 
 ## Dry Run Mode
 
@@ -71,10 +105,12 @@ Preview what would be created without writing files:
 
 ```bash
 flavour-gen create \
-  --input ./my-client \
+  --input ./my-clients \
   --output-dir /path/to/project/app/output \
   --dry-run -v
 ```
+
+---
 
 ## Options
 
@@ -82,7 +118,7 @@ flavour-gen create \
 
 ```bash
 flavour-gen create \
-  --input ./my-client \
+  --input ./my-clients \
   --logo /custom/path/logo.png \
   --output-dir ./output
 ```
@@ -91,26 +127,17 @@ flavour-gen create \
 
 ```bash
 flavour-gen create \
-  --input ./my-client \
+  --input ./my-clients \
   --bg-color "#FF5722" \
   --output-dir ./output
 ```
 
-### Auto Background (Default)
-
-Uses dominant color from logo corners:
-
-```bash
-flavour-gen create \
-  --input ./my-client \
-  --auto-bg \
-  --output-dir ./output
-```
+---
 
 ## Next Steps
 
 1. Open Android project in Android Studio
-2. Build the new flavor: `./gradlew assemble<ArchiveBasename>Debug`
+2. Build a flavor: `./gradlew assemble<ArchiveBasename>Debug`
 3. Find APK in `app/build/outputs/apk/`
 
 ## Troubleshooting
