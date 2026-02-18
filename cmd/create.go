@@ -40,13 +40,13 @@ var (
 
 var createCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create a new app flavor package",
+	Short: "Create a new Android app flavor",
 	RunE:  runCreate,
 }
 
 func init() {
-	createCmd.Flags().StringVar(&inputPath, "input", "", "Input folder containing data.json and google-services.json [required]")
-	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [optional - will use app_logo from data.json if not provided]")
+	createCmd.Flags().StringVar(&inputPath, "input", "", "Input folder with data.json and google-services.json [required]")
+	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [optional - uses app_logo from data.json]")
 	createCmd.Flags().StringVar(&bgColor, "bg-color", "", "Background color #RRGGBB (auto-detected if empty)")
 	createCmd.Flags().BoolVar(&autoBG, "auto-bg", true, "Auto-detect background from logo")
 	createCmd.Flags().StringVar(&outputDir, "output-dir", "./output", "Output directory")
@@ -61,12 +61,12 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		infoC.Println("[INFO] Starting flavor generation")
 	}
 
-	// Step 1: Prerequisites
+	// Check prerequisites
 	if err := checkPrerequisites(); err != nil {
-		return fmt.Errorf("prerequisites check failed: %w", err)
+		return err
 	}
 
-	// Step 2: Validate input folder
+	// Validate input folder
 	inputDir, err := os.Stat(inputPath)
 	if err != nil {
 		return fmt.Errorf("input folder: %w", err)
@@ -75,40 +75,31 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return errors.New("input must be a folder")
 	}
 
-	// Load data.json
-	dataFile := filepath.Join(inputPath, "data.json")
-	clientData, err := loadClientData(dataFile)
+	// Load and validate data.json
+	clientData, err := loadClientData(filepath.Join(inputPath, "data.json"))
 	if err != nil {
 		return fmt.Errorf("load data.json: %w", err)
 	}
 
-	// Validate theme ID
-	themeID := clientData.ThemeID
-	if themeID <= 0 {
+	// Validate required fields
+	if clientData.ThemeID <= 0 {
 		return errors.New("theme_id is required in data.json")
 	}
-
-	// Validate app_logo is provided
 	if clientData.AppLogo == "" {
 		return errors.New("app_logo is required in data.json")
 	}
 
-	// Resolve app_logo path - it's relative to input folder
-	logoFromData := filepath.Join(inputPath, clientData.AppLogo)
-	if _, err := os.Stat(logoFromData); err == nil {
-		// If app_logo exists in input folder, use it instead of --logo flag
-		logoPath = logoFromData
-	}
-
-	// Validate logo is available
+	// Resolve logo path - from data.json or --logo flag
+	logoPath = resolveLogoPath(inputPath, clientData.AppLogo, logoPath)
 	if logoPath == "" {
-		return errors.New("logo not found. Use --logo flag or specify app_logo in data.json")
+		return errors.New("logo not found. Use --logo or specify app_logo in data.json")
+	}
+	if ext := strings.ToLower(filepath.Ext(logoPath)); ext != ".png" {
+		return errors.New("logo must be PNG")
 	}
 
-	// Validate logo file
-	// outputDir = /path/to/project/output -> project = /path/to/project
+	// Find Android project root from output-dir
 	androidProject := filepath.Dir(outputDir)
-	// Handle case where output-dir is relative
 	if !filepath.IsAbs(outputDir) {
 		absOutput, _ := filepath.Abs(outputDir)
 		androidProject = filepath.Dir(absOutput)
@@ -117,63 +108,36 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return errors.New("output-dir must be inside an Android project")
 	}
 
-	// Set templates dir to the Android project's app folder
+	// Set templates dir to Android project's app folder
 	flavor.SetTemplatesDir(filepath.Join(androidProject, "app"))
 
-	// Validate theme exists in the Android project
+	// Validate theme exists
 	availableThemes, err := flavor.ListThemes()
 	if err != nil {
 		return fmt.Errorf("list themes: %w", err)
 	}
-	if !slices.Contains(availableThemes, themeID) {
-		return fmt.Errorf("theme %d not found in project. available: %v", themeID, availableThemes)
+	if !slices.Contains(availableThemes, clientData.ThemeID) {
+		return fmt.Errorf("theme %d not found in project. available: %v", clientData.ThemeID, availableThemes)
 	}
 
-	// Check for google-services.json in input folder
+	// Check for google-services.json
 	gsFile := filepath.Join(inputPath, "google-services.json")
-	hasGS := false
-	if _, err := os.Stat(gsFile); err == nil {
-		hasGS = true
-	}
-
-	// Validate logo
-	if _, err := os.Stat(logoPath); err != nil {
-		return fmt.Errorf("logo file: %w", err)
-	}
-	if ext := strings.ToLower(filepath.Ext(logoPath)); ext != ".png" {
-		return errors.New("logo must be PNG")
-	}
-
-	// Validate output directory
-	if stat, err := os.Stat(outputDir); err == nil && !stat.IsDir() {
-		return errors.New("output path exists and is not a directory")
-	}
+	_, err = os.Stat(gsFile)
+	hasGS := err == nil
 
 	if verbose {
-		infoC.Printf("[INFO] Android Project: %s\n", androidProject)
 		infoC.Printf("[INFO] Client: %s (%s)\n", clientData.AppName, clientData.ArchiveBasename)
-		infoC.Printf("[INFO] Theme: %d\n", themeID)
-		infoC.Printf("[INFO] Output: %s\n", outputDir)
-		infoC.Printf("[INFO] google-services.json: %v\n", hasGS)
+		infoC.Printf("[INFO] Theme: %d | Output: %s | GS: %v\n", clientData.ThemeID, outputDir, hasGS)
 	}
 
-	// Step 3: Create folder structure
+	// Create output directory structure
 	if !dryRun {
-		if err := os.MkdirAll(filepath.Join(outputDir, "app/keystore"), 0755); err != nil {
-			return fmt.Errorf("create keystore dir: %w", err)
-		}
-		if err := os.MkdirAll(filepath.Join(outputDir, "app/flavours"), 0755); err != nil {
-			return fmt.Errorf("create flavours dir: %w", err)
-		}
-		if err := os.MkdirAll(filepath.Join(outputDir, "app/src", clientData.ArchiveBasename), 0755); err != nil {
-			return fmt.Errorf("create src dir: %w", err)
-		}
+		os.MkdirAll(filepath.Join(outputDir, "app/keystore"), 0755)
+		os.MkdirAll(filepath.Join(outputDir, "app/flavours"), 0755)
+		os.MkdirAll(filepath.Join(outputDir, "app/src", clientData.ArchiveBasename), 0755)
 	}
 
-	// Step 4: Process icons
-	if verbose {
-		infoC.Println("[INFO] Processing icons...")
-	}
+	// Process icons
 	bg, err := icon.GetBackgroundColor(bgColor, autoBG, logoPath)
 	if err != nil {
 		return fmt.Errorf("background color: %w", err)
@@ -190,36 +154,30 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if verbose {
-		infoC.Printf("[INFO] Icons written: %s, %s\n", iconPaths.AdaptiveXML, notifPath)
+		infoC.Printf("[INFO] Icons: %s, %s\n", iconPaths.AdaptiveXML, notifPath)
 	}
 
-	// Step 5: Duplicate theme and generate Gradle files
-	if verbose {
-		infoC.Println("[INFO] Duplicating theme...")
-	}
-	themeFiles, err := flavor.DuplicateTheme(themeID, clientData.ArchiveBasename, outputDir, clientData, dryRun)
+	// Duplicate theme and create gradle
+	themeFiles, err := flavor.DuplicateTheme(clientData.ThemeID, clientData.ArchiveBasename, outputDir, clientData, dryRun)
 	if err != nil {
 		return fmt.Errorf("duplicate theme: %w", err)
 	}
 
 	if verbose {
-		infoC.Printf("[INFO] Theme files: %v\n", themeFiles.GradleFile)
+		infoC.Printf("[INFO] Gradle: %s\n", themeFiles.GradleFile)
 	}
 
-	// Step 5b: Add flavor to build_type.gradle and flavours.gradle
+	// Update build_type.gradle and flavours.gradle
 	if !dryRun {
 		if err := flavor.AddFlavorToBuildType(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
-			warnC.Printf("[WARN] Failed to update build_type.gradle: %v\n", err)
+			warnC.Printf("[WARN] build_type.gradle: %v\n", err)
 		}
 		if err := flavor.AddFlavorToFlavours(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
-			warnC.Printf("[WARN] Failed to update flavours.gradle: %v\n", err)
+			warnC.Printf("[WARN] flavours.gradle: %v\n", err)
 		}
 	}
 
-	// Step 6: Generate keystore
-	if verbose {
-		infoC.Println("[INFO] Generating keystore...")
-	}
+	// Generate keystore
 	keystorePath, err := keystore.Generate(clientData, outputDir, dryRun)
 	if err != nil {
 		return fmt.Errorf("keystore: %w", err)
@@ -228,41 +186,35 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		infoC.Printf("[INFO] Keystore: %s\n", keystorePath)
 	}
 
-	// Step 7: Copy google-services.json if available
-	if hasGS {
-		src := gsFile
+	// Copy google-services.json
+	if hasGS && !dryRun {
 		dst := filepath.Join(outputDir, "app/src", clientData.ArchiveBasename, "google-services.json")
-		if !dryRun {
-			if err := copyFile(src, dst); err != nil {
-				return fmt.Errorf("copy google-services.json: %w", err)
-			}
-		}
-		if verbose {
-			infoC.Println("[INFO] google-services.json copied")
+		if data, err := os.ReadFile(gsFile); err == nil {
+			os.WriteFile(dst, data, 0644)
 		}
 	}
 
-	// Success output
+	// Success
 	boldC.Print("✅ ")
 	successC.Printf("Flavor created: %s\n", clientData.ArchiveBasename)
 	if dryRun {
-		warnC.Println("(dry-run mode — no files written)")
+		warnC.Println("(dry-run mode)")
 	}
 	return nil
 }
 
+// checkPrerequisites verifies required tools are installed
 func checkPrerequisites() error {
-	// Check keytool exists (required)
 	if _, err := exec.LookPath("keytool"); err != nil {
-		return errors.New("keytool not installed. Install Java JDK")
+		return errors.New("keytool not found. Install Java JDK")
 	}
-	// Check gradle exists (optional - only warn)
 	if _, err := exec.LookPath("gradle"); err != nil {
-		warnC.Println("[WARN] Gradle not found (optional - only needed for validation)")
+		warnC.Println("[WARN] Gradle not found (optional)")
 	}
 	return nil
 }
 
+// loadClientData loads and computes client data from JSON file
 func loadClientData(path string) (*config.ClientData, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -276,10 +228,16 @@ func loadClientData(path string) (*config.ClientData, error) {
 	return &cd, nil
 }
 
-func copyFile(src, dst string) error {
-	in, err := os.ReadFile(src)
-	if err != nil {
-		return err
+// resolveLogoPath finds the logo file path
+func resolveLogoPath(inputDir, appLogo, cliLogo string) string {
+	if cliLogo != "" {
+		return cliLogo
 	}
-	return os.WriteFile(dst, in, 0644)
+	if appLogo != "" {
+		path := filepath.Join(inputDir, appLogo)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
 }

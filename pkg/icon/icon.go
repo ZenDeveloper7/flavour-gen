@@ -12,18 +12,19 @@ import (
 	"github.com/disintegration/imaging"
 )
 
-// GetBackgroundColor extracts dominant color from corners if autoBG is true and bgColor empty.
+// GetBackgroundColor extracts dominant color from logo corners for adaptive icon background
 func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGBA, error) {
 	var target color.RGBA
-	if bgColor != "" {
-		if len(bgColor) == 7 && bgColor[0] == '#' {
-			r := parseHex(bgColor[1:3])
-			g := parseHex(bgColor[3:5])
-			b := parseHex(bgColor[5:7])
-			target = color.RGBA{R: r, G: g, B: b, A: 255}
-			return target, nil
-		}
+
+	// Use provided bgColor if given
+	if bgColor != "" && len(bgColor) == 7 && bgColor[0] == '#' {
+		r := parseHex(bgColor[1:3])
+		g := parseHex(bgColor[3:5])
+		b := parseHex(bgColor[5:7])
+		return color.RGBA{R: r, G: g, B: b, A: 255}, nil
 	}
+
+	// Auto-detect from logo corners
 	if autoBG {
 		img, err := imaging.Open(logoPath)
 		if err != nil {
@@ -34,6 +35,8 @@ func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGB
 		if w == 0 || h == 0 {
 			return target, fmt.Errorf("invalid image size")
 		}
+
+		// Sample 4 corners
 		corners := []image.Point{{0, 0}, {w - 1, 0}, {0, h - 1}, {w - 1, h - 1}}
 		var rSum, gSum, bSum, count int
 		for _, p := range corners {
@@ -47,7 +50,12 @@ func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGB
 		if count == 0 {
 			return target, fmt.Errorf("no corner samples")
 		}
-		target = color.RGBA{R: uint8(rSum / count), G: uint8(gSum / count), B: uint8(bSum / count), A: 255}
+		target = color.RGBA{
+			R: uint8(rSum / count),
+			G: uint8(gSum / count),
+			B: uint8(bSum / count),
+			A: 255,
+		}
 	} else {
 		target = color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	}
@@ -60,7 +68,7 @@ func parseHex(s string) uint8 {
 	return v
 }
 
-// IconPaths holds output file paths
+// IconPaths holds output file paths for generated icons
 type IconPaths struct {
 	AdaptiveXML   string
 	LegacyMDpi    string
@@ -73,10 +81,10 @@ type IconPaths struct {
 	NotifXhdpi    string
 	NotifXXhdpi   string
 	NotifXXXhdpi  string
-	AppLogoWebp   string
+	AppLogo       string
 }
 
-// GenerateAppIcon creates the adaptive launcher icon, 512x512 logo, and legacy PNGs
+// GenerateAppIcon creates launcher icons: adaptive XML + legacy PNGs + 512x512 app_logo
 func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun bool) (IconPaths, error) {
 	var paths IconPaths
 
@@ -84,94 +92,79 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 	if err != nil {
 		return paths, fmt.Errorf("load logo: %w", err)
 	}
+
+	// Resize logo for foreground
 	fg := imaging.Resize(logo, 512, 512, imaging.Lanczos)
 
-	// Create background layer
+	// Create background
 	bgImg := image.NewRGBA(image.Rect(0, 0, 512, 512))
 	draw.Draw(bgImg, bgImg.Bounds(), &image.Uniform{C: bg}, image.Point{}, draw.Src)
 
-	// Create combined foreground+background for launcher icon
+	// Combine foreground + background for launcher icon
 	combined := image.NewRGBA(bgImg.Bounds())
 	draw.Draw(combined, bgImg.Bounds(), bgImg, image.Point{}, draw.Src)
 	offset := (512 - fg.Bounds().Dx()) / 2
 	draw.Draw(combined, fg.Bounds().Add(image.Pt(offset, offset)), fg, image.Point{}, draw.Over)
 
 	if !dryRun {
-		// Create drawable folder for 512x512 app_logo.webp
+		// Save 512x512 app_logo.png in drawable
 		drawableDir := filepath.Join(outputDir, "app/src", baseName, "res/drawable")
 		if err := os.MkdirAll(drawableDir, 0755); err != nil {
 			return paths, err
 		}
-		
-		// Save 512x512 app_logo as PNG (for now - can convert to WEBP if needed)
 		appLogoPath := filepath.Join(drawableDir, "app_logo.png")
-		f, err := os.Create(appLogoPath)
-		if err != nil {
-			return paths, err
+		if f, err := os.Create(appLogoPath); err == nil {
+			png.Encode(f, fg)
+			f.Close()
+			paths.AppLogo = appLogoPath
 		}
-		defer f.Close()
-		if err := png.Encode(f, fg); err != nil {
-			return paths, err
-		}
-		paths.AppLogoWebp = appLogoPath
 
 		// Create adaptive icon XML
 		xmlDir := filepath.Join(outputDir, "app/src", baseName, "res/mipmap-anydpi-v26")
-		if err := os.MkdirAll(xmlDir, 0755); err != nil {
-			return paths, err
-		}
+		os.MkdirAll(xmlDir, 0755)
 		xmlPath := filepath.Join(xmlDir, "ic_launcher.xml")
-		xml := generateAdaptiveXML("ic_launcher")
-		if err := os.WriteFile(xmlPath, []byte(xml), 0644); err != nil {
-			return paths, err
-		}
+		os.WriteFile(xmlPath, []byte(generateAdaptiveXML("ic_launcher")), 0644)
 		paths.AdaptiveXML = xmlPath
 	}
 
-	// Create legacy launcher icons at different densities
+	// Generate legacy launcher icons at different densities
 	densities := []struct {
 		name string
 		size int
 	}{
-		{"mdpi", 48},
-		{"hdpi", 72},
-		{"xhdpi", 96},
-		{"xxhdpi", 144},
-		{"xxxhdpi", 192},
+		{"mdpi", 48}, {"hdpi", 72}, {"xhdpi", 96}, {"xxhdpi", 144}, {"xxxhdpi", 192},
 	}
 	outputBase := filepath.Join(outputDir, "app/src", baseName, "res")
 	for _, d := range densities {
 		img := imaging.Resize(combined, d.size, d.size, imaging.Lanczos)
 		dir := filepath.Join(outputBase, "mipmap-"+d.name)
 		if !dryRun {
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				return paths, err
-			}
+			os.MkdirAll(dir, 0755)
 			outPath := filepath.Join(dir, "ic_launcher.png")
-			f, err := os.Create(outPath)
-			if err != nil {
-				return paths, err
-			}
-			defer f.Close()
-			if err := png.Encode(f, img); err != nil {
-				return paths, err
-			}
-			switch d.name {
-			case "mdpi":
-				paths.LegacyMDpi = outPath
-			case "hdpi":
-				paths.LegacyHdpi = outPath
-			case "xhdpi":
-				paths.LegacyXhdpi = outPath
-			case "xxhdpi":
-				paths.LegacyXXhdpi = outPath
-			case "xxxhdpi":
-				paths.LegacyXXXhdpi = outPath
+			if f, err := os.Create(outPath); err == nil {
+				png.Encode(f, img)
+				f.Close()
+				setLegacyPath(&paths, d.name, outPath)
 			}
 		}
 	}
 
 	return paths, nil
+}
+
+func setLegacyPath(paths *IconPaths, density, path string) {
+	switch density {
+	case "mdpi":
+		paths.LegacyMDpi = path
+	case "hdpi":
+		paths.LegacyHdpi = path
+	case "xhdpi":
+		paths.LegacyXhdpi = path
+	case "xxhdpi":
+		paths.LegacyXXhdpi = path
+	case "xxxhdpi":
+		paths.LegacyXXXhdpi = path
+	}
 }
 
 func generateAdaptiveXML(name string) string {
@@ -182,30 +175,24 @@ func generateAdaptiveXML(name string) string {
 </adaptive-icon>`, name)
 }
 
-// GenerateNotificationIcon creates a transparent notification icon (white logo on transparent)
+// GenerateNotificationIcon creates white-on-transparent notification icons
 func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool) (string, error) {
 	logo, err := imaging.Open(logoPath)
 	if err != nil {
 		return "", fmt.Errorf("load logo: %w", err)
 	}
 
-	// Convert to white logo on transparent background
-	// This makes it suitable for notification icons
+	// Convert to grayscale then to white on transparent
 	logo = imaging.Grayscale(logo)
-	logo = imaging.AdjustBrightness(logo, 20) // Brighten it a bit
 	logo = imaging.Resize(logo, 512, 512, imaging.Lanczos)
 
-	// Create transparent image
-	transparent := image.NewRGBA(logo.Bounds())
-	draw.Draw(transparent, transparent.Bounds(), &image.Uniform{color.RGBA{0, 0, 0, 0}}, image.Point{}, draw.Src)
-
-	// Draw white logo on transparent background
+	// Create white logo on transparent background
 	whiteLogo := image.NewRGBA(logo.Bounds())
 	for y := 0; y < logo.Bounds().Dy(); y++ {
 		for x := 0; x < logo.Bounds().Dx(); x++ {
 			px := logo.At(x, y)
 			r, g, b, _ := px.RGBA()
-			// If pixel is not white, make it white
+			// Non-white pixels become white, white becomes transparent
 			if r < 65535 || g < 65535 || b < 65535 {
 				whiteLogo.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
 			} else {
@@ -215,32 +202,22 @@ func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool)
 	}
 
 	densities := []struct{ name string; size int }{
-		{"mdpi", 24},
-		{"hdpi", 36},
-		{"xhdpi", 48},
-		{"xxhdpi", 72},
-		{"xxxhdpi", 96},
+		{"mdpi", 24}, {"hdpi", 36}, {"xhdpi", 48}, {"xxhdpi", 72}, {"xxxhdpi", 96},
 	}
 	outputBase := filepath.Join(outputDir, "app/src", baseName, "res")
 	var lastPath string
+
 	for _, d := range densities {
 		img := imaging.Resize(whiteLogo, d.size, d.size, imaging.Lanczos)
 		dir := filepath.Join(outputBase, "drawable-"+d.name)
 		if !dryRun {
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				return "", err
-			}
+			os.MkdirAll(dir, 0755)
 			outPath := filepath.Join(dir, "ic_notification_icon.png")
-			f, err := os.Create(outPath)
-			if err != nil {
-				return "", err
+			if f, err := os.Create(outPath); err == nil {
+				png.Encode(f, img)
+				f.Close()
+				lastPath = outPath
 			}
-			defer f.Close()
-			// Encode as PNG
-			if err := png.Encode(f, img); err != nil {
-				return "", err
-			}
-			lastPath = outPath
 		}
 	}
 	return lastPath, nil

@@ -10,29 +10,23 @@ import (
 	"github.com/ZenDeveloper7/flavour-gen/pkg/config"
 )
 
-// Generate creates a Java keystore (JKS) for the given client.
-// It calls the external `keytool` command and adds an entry to keystore.gradle.
-// Returns the path to the keystore file.
+// Generate creates a Java keystore (JKS) and adds entry to keystore.gradle
 func Generate(cd *config.ClientData, outputDir string, dryRun bool) (string, error) {
 	keystoreDir := filepath.Join(outputDir, "app/keystore")
 	keystorePath := filepath.Join(keystoreDir, cd.ArchiveBasename+".jks")
-	
+
 	if dryRun {
 		return keystorePath, nil
 	}
-	
+
 	if err := os.MkdirAll(keystoreDir, 0755); err != nil {
 		return "", err
 	}
-	
-	// Build keytool command
+
+	// Generate keystore using keytool
 	cmd := exec.Command("keytool",
-		"-genkeypair",
-		"-v",
-		"-storetype", "JKS",
-		"-keyalg", "RSA",
-		"-keysize", "2048",
-		"-validity", "10000",
+		"-genkeypair", "-v", "-storetype", "JKS", "-keyalg", "RSA",
+		"-keysize", "2048", "-validity", "10000",
 		"-keystore", keystorePath,
 		"-alias", cd.ArchiveBasename,
 		"-storepass", cd.ArchiveBasename,
@@ -44,65 +38,61 @@ func Generate(cd *config.ClientData, outputDir string, dryRun bool) (string, err
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("keytool failed: %w", err)
 	}
-	
+
 	// Add entry to keystore.gradle
-	// Find the project root (parent of outputDir)
-	projectRoot := filepath.Dir(outputDir)
+	if err := addToKeystoreGradle(cd.ArchiveBasename, filepath.Dir(outputDir)); err != nil {
+		fmt.Printf("[WARN] Failed to update keystore.gradle: %v\n", err)
+	}
+
+	return keystorePath, nil
+}
+
+// addToKeystoreGradle adds a new signing config entry to keystore.gradle
+func addToKeystoreGradle(archiveBasename, projectRoot string) error {
 	keystoreGradlePath := filepath.Join(projectRoot, "app/keystore.gradle")
-	
-	if _, err := os.Stat(keystoreGradlePath); err == nil {
-		// Read existing keystore.gradle
-		content, err := os.ReadFile(keystoreGradlePath)
-		if err == nil {
-			// Check if this signing config already exists
-			configName := cd.ArchiveBasename
-			if !strings.Contains(string(content), configName+" {") {
-				// Add new signing config AFTER the last closing brace
-				newEntry := fmt.Sprintf(`
+	if _, err := os.Stat(keystoreGradlePath); err != nil {
+		return fmt.Errorf("keystore.gradle not found: %w", err)
+	}
+
+	content, err := os.ReadFile(keystoreGradlePath)
+	if err != nil {
+		return err
+	}
+
+	// Skip if already exists
+	if strings.Contains(string(content), archiveBasename+" {") {
+		return nil
+	}
+
+	// Add new signing config after existing ones
+	newEntry := fmt.Sprintf(`
     %s {
         storeFile file("keystore/%s.jks")
         storePassword "%s"
         keyAlias "%s"
         keyPassword "%s"
     }
-`, configName, configName, configName, configName, configName)
-				
-				// Find position to insert - AFTER the closing brace of signingConfigs
-				existing := string(content)
-				
-				// Find the closing of signingConfigs block - look for "    }" that closes the last signing config
-				// and insert AFTER it
-				lines := strings.Split(existing, "\n")
-				var newLines []string
-				added := false
-				
-				for i, line := range lines {
-					newLines = append(newLines, line)
-					// After the closing brace of a signing config, add our new config
-					// Look for "        }" which closes a signing config block
-					if strings.Contains(line, "        }") && !added {
-						// Skip adding if next line already has our config
-						if i+1 < len(lines) && strings.Contains(lines[i+1], configName) {
-							continue
-						}
-						newLines = append(newLines, newEntry)
-						added = true
-					}
-				}
-				
-				if !added {
-					// Fallback: just append
-					newLines = append(newLines, newEntry)
-				}
-				
-				newContent := strings.Join(newLines, "\n")
-				err = os.WriteFile(keystoreGradlePath, []byte(newContent), 0644)
-				if err != nil {
-					return keystorePath, fmt.Errorf("update keystore.gradle: %w", err)
-				}
+`, archiveBasename, archiveBasename, archiveBasename, archiveBasename, archiveBasename)
+
+	lines := strings.Split(string(content), "\n")
+	var newLines []string
+	added := false
+
+	for i, line := range lines {
+		newLines = append(newLines, line)
+		// After closing brace of a signing config, add our new config
+		if strings.Contains(line, "        }") && !added {
+			if i+1 < len(lines) && strings.Contains(lines[i+1], archiveBasename) {
+				continue
 			}
+			newLines = append(newLines, newEntry)
+			added = true
 		}
 	}
-	
-	return keystorePath, nil
+
+	if !added {
+		newLines = append(newLines, newEntry)
+	}
+
+	return os.WriteFile(keystoreGradlePath, []byte(strings.Join(newLines, "\n")), 0644)
 }
