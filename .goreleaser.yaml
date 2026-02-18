@@ -1,6 +1,4 @@
 # .goreleaser.yaml
-# Documentation: https://goreleaser.com/configuration
-
 version: 2
 
 project_name: flavour-gen
@@ -25,40 +23,19 @@ builds:
 archives:
   - id: default
     format: tar.gz
-    format_overrides:
-      - goos: windows
-        format: zip
 
 checksum:
   name_template: 'checksums.txt'
-
-snapshot:
-  name_template: "{{ .Tag }}-next"
-
-changelog:
-  sort: asc
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
 
 release:
   github:
     owner: ZenDeveloper7
     name: flavour-gen
-  draft: false
-  prerelease: auto
 
 homebrew:
-  github:
-    owner: ZenDeveloper7
-    name: homebrew-tap
-  directory: Formula
-  name: flavour-gen
-  upload_url: https://github.com/ZenDeveloper7/flavour-gen/releases/download/{{ .Tag }}/{{ .ArtifactName }}
-  url: https://github.com/ZenDeveloper7/flavour-gen/releases/download/{{ .Tag }}/
-
-announce:
-  twitter:
-    enabled: false
+  - repository:
+      owner: ZenDeveloper7
+      name: homebrew-tap
+    directory: Formula
+    upload_url: https://github.com/ZenDeveloper7/flavour-gen/releases/download/{{ .Tag }}/{{ .ArtifactName }}
+    url: https://github.com/ZenDeveloper7/flavour-gen/releases/download/{{ .Tag }}/
