@@ -89,16 +89,31 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return errors.New("theme_id is required in data.json")
 	}
 
-	// Validate theme exists
+	// Find Android project path - use parent of output-dir
+	// outputDir = /path/to/project/output -> project = /path/to/project
+	androidProject := filepath.Dir(outputDir)
+	// Handle case where output-dir is relative
+	if !filepath.IsAbs(outputDir) {
+		absOutput, _ := filepath.Abs(outputDir)
+		androidProject = filepath.Dir(absOutput)
+	}
+	if androidProject == "." || androidProject == "/" {
+		return errors.New("output-dir must be inside an Android project")
+	}
+
+	// Set templates dir to the Android project's app folder
+	flavor.SetTemplatesDir(filepath.Join(androidProject, "app"))
+
+	// Validate theme exists in the Android project
 	availableThemes, err := flavor.ListThemes()
 	if err != nil {
 		return fmt.Errorf("list themes: %w", err)
 	}
 	if !slices.Contains(availableThemes, themeID) {
-		return fmt.Errorf("theme %d not found. available: %v", themeID, availableThemes)
+		return fmt.Errorf("theme %d not found in project. available: %v", themeID, availableThemes)
 	}
 
-	// Check for google-services.json
+	// Check for google-services.json in input folder
 	gsFile := filepath.Join(inputPath, "google-services.json")
 	hasGS := false
 	if _, err := os.Stat(gsFile); err == nil {
@@ -119,6 +134,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if verbose {
+		infoC.Printf("[INFO] Android Project: %s\n", androidProject)
 		infoC.Printf("[INFO] Client: %s (%s)\n", clientData.AppName, clientData.ArchiveBasename)
 		infoC.Printf("[INFO] Theme: %d\n", themeID)
 		infoC.Printf("[INFO] Output: %s\n", outputDir)
