@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -39,13 +38,13 @@ var (
 
 var createCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create a new Android app flavor",
+	Short: "Create Android app flavors from client data",
 	RunE:  runCreate,
 }
 
 func init() {
-	createCmd.Flags().StringVar(&inputPath, "input", "", "Input folder with data.json and google-services.json [required]")
-	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [optional - uses app_logo from data.json]")
+	createCmd.Flags().StringVar(&inputPath, "input", "", "Input folder with data.json [required]")
+	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [optional]")
 	createCmd.Flags().StringVar(&bgColor, "bg-color", "", "Background color #RRGGBB (default: white)")
 	createCmd.Flags().StringVar(&outputDir, "output-dir", "./output", "Output directory")
 	createCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without writing files")
@@ -73,27 +72,14 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return errors.New("input must be a folder")
 	}
 
-	// Load and validate data.json
-	clientData, err := loadClientData(filepath.Join(inputPath, "data.json"))
+	// Load client data (supports single or array)
+	clients, err := config.LoadClientData(filepath.Join(inputPath, "data.json"))
 	if err != nil {
 		return fmt.Errorf("load data.json: %w", err)
 	}
 
-	// Validate required fields
-	if clientData.ThemeID <= 0 {
-		return errors.New("theme_id is required in data.json")
-	}
-	if clientData.AppLogo == "" {
-		return errors.New("app_logo is required in data.json")
-	}
-
-	// Resolve logo path - from data.json or --logo flag
-	logoPath = resolveLogoPath(inputPath, clientData.AppLogo, logoPath)
-	if logoPath == "" {
-		return errors.New("logo not found. Use --logo or specify app_logo in data.json")
-	}
-	if ext := strings.ToLower(filepath.Ext(logoPath)); ext != ".png" {
-		return errors.New("logo must be PNG")
+	if len(clients) == 0 {
+		return errors.New("no clients found in data.json")
 	}
 
 	// Find Android project root from output-dir
@@ -109,106 +95,143 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	// Set templates dir to Android project's app folder
 	flavour.SetTemplatesDir(filepath.Join(androidProject, "app"))
 
-	// Validate theme exists
-	availableThemes, err := flavour.ListThemes()
-	if err != nil {
-		return fmt.Errorf("list themes: %w", err)
-	}
-	if !slices.Contains(availableThemes, clientData.ThemeID) {
-		return fmt.Errorf("theme %d not found in project. available: %v", clientData.ThemeID, availableThemes)
-	}
+	// Process each client
+	successCount := 0
+	for i, client := range clients {
+		if len(clients) > 1 {
+			infoC.Printf("\n[INFO] Processing client %d/%d: %s\n", i+1, len(clients), client.AppName)
+		}
 
-	// Check for google-services.json and extract education_number
-	gsFile := filepath.Join(inputPath, "google-services.json")
-	hasGS := false
-	if _, err := os.Stat(gsFile); err == nil {
-		hasGS = true
-		// Extract education_number (project_number) from google-services.json
-		if eduNum, err := config.ExtractEducationNumber(gsFile); err == nil {
-			clientData.EducationNumber = eduNum
-			if verbose {
-				infoC.Printf("[INFO] Education number: %d\n", eduNum)
+		// Validate required fields
+		if client.ThemeID <= 0 {
+			warnC.Printf("[WARN] Client '%s': theme_id is required, skipping\n", client.AppName)
+			continue
+		}
+		if client.AppLogo == "" && logoPath == "" {
+			warnC.Printf("[WARN] Client '%s': app_logo is required, skipping\n", client.AppName)
+			continue
+		}
+
+		// Resolve logo path
+		logoFilePath := resolveLogoPath(inputPath, client.AppLogo, logoPath)
+		if logoFilePath == "" {
+			warnC.Printf("[WARN] Client '%s': logo not found, skipping\n", client.AppName)
+			continue
+		}
+		if ext := strings.ToLower(filepath.Ext(logoFilePath)); ext != ".png" {
+			warnC.Printf("[WARN] Client '%s': logo must be PNG, skipping\n", client.AppName)
+			continue
+		}
+
+		// Validate theme exists
+		availableThemes, err := flavour.ListThemes()
+		if err != nil {
+			return fmt.Errorf("list themes: %w", err)
+		}
+		if !slices.Contains(availableThemes, client.ThemeID) {
+			warnC.Printf("[WARN] Client '%s': theme %d not found, skipping\n", client.AppName, client.ThemeID)
+			continue
+		}
+
+		// Extract education_number from google-services.json if available
+		gsFile := filepath.Join(inputPath, "google-services.json")
+		if _, err := os.Stat(gsFile); err == nil {
+			if eduNum, err := config.ExtractEducationNumber(gsFile); err == nil {
+				client.EducationNumber = eduNum
+				if verbose {
+					infoC.Printf("[INFO] Client '%s': Education number: %d\n", client.AppName, eduNum)
+				}
 			}
-		} else if verbose {
-			warnC.Printf("[WARN] Could not extract education_number: %v\n", err)
 		}
-	}
 
-	if verbose {
-		infoC.Printf("[INFO] Client: %s (%s)\n", clientData.AppName, clientData.ArchiveBasename)
-		infoC.Printf("[INFO] Theme: %d | Output: %s | GS: %v\n", clientData.ThemeID, outputDir, hasGS)
-	}
+		// Create output directory for this client
+		clientOutputDir := outputDir
 
-	// Create output directory structure
-	if !dryRun {
-		os.MkdirAll(filepath.Join(outputDir, "app/keystore"), 0755)
-		os.MkdirAll(filepath.Join(outputDir, "app/flavours"), 0755)
-		os.MkdirAll(filepath.Join(outputDir, "app/src", clientData.ArchiveBasename), 0755)
-	}
-
-	// Process icons
-	bg, err := icon.GetBackgroundColor(bgColor, false, logoPath)
-	if err != nil {
-		return fmt.Errorf("background color: %w", err)
-	}
-
-	iconPaths, err := icon.GenerateAppIcon(logoPath, clientData.ArchiveBasename, outputDir, bg, dryRun)
-	if err != nil {
-		return fmt.Errorf("app icon: %w", err)
-	}
-
-	notifPath, err := icon.GenerateNotificationIcon(logoPath, clientData.ArchiveBasename, outputDir, dryRun)
-	if err != nil {
-		return fmt.Errorf("notification icon: %w", err)
-	}
-
-	if verbose {
-		infoC.Printf("[INFO] Icons: %s, %s\n", iconPaths.AdaptiveXML, notifPath)
-	}
-
-	// Duplicate theme and create gradle
-	themeFiles, err := flavour.DuplicateTheme(clientData.ThemeID, clientData.ArchiveBasename, outputDir, clientData, dryRun)
-	if err != nil {
-		return fmt.Errorf("duplicate theme: %w", err)
-	}
-
-	if verbose {
-		infoC.Printf("[INFO] Gradle: %s\n", themeFiles.GradleFile)
-	}
-
-	// Update build_type.gradle and flavours.gradle
-	if !dryRun {
-		if err := flavour.AddFlavorToBuildType(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
-			warnC.Printf("[WARN] build_type.gradle: %v\n", err)
+		if !dryRun {
+			if err := os.MkdirAll(filepath.Join(clientOutputDir, "app/keystore"), 0755); err != nil {
+				warnC.Printf("[WARN] Client '%s': failed to create directories: %v\n", client.AppName, err)
+				continue
+			}
 		}
-		if err := flavour.AddFlavorToFlavours(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
-			warnC.Printf("[WARN] flavours.gradle: %v\n", err)
+
+		// Generate icons
+		bg, err := icon.GetBackgroundColor(bgColor, false, logoFilePath)
+		if err != nil {
+			warnC.Printf("[WARN] Client '%s': background color: %v\n", client.AppName, err)
+			continue
 		}
-	}
 
-	// Generate keystore
-	keystorePath, err := keystore.Generate(clientData, outputDir, dryRun)
-	if err != nil {
-		return fmt.Errorf("keystore: %w", err)
-	}
-	if verbose && keystorePath != "" {
-		infoC.Printf("[INFO] Keystore: %s\n", keystorePath)
-	}
-
-	// Copy google-services.json
-	if hasGS && !dryRun {
-		dst := filepath.Join(outputDir, "app/src", clientData.ArchiveBasename, "google-services.json")
-		if data, err := os.ReadFile(gsFile); err == nil {
-			os.WriteFile(dst, data, 0644)
+		if _, err := icon.GenerateAppIcon(logoFilePath, client.ArchiveBasename, clientOutputDir, bg, dryRun); err != nil {
+			warnC.Printf("[WARN] Client '%s': app icon: %v\n", client.AppName, err)
+			continue
 		}
+
+		if _, err := icon.GenerateNotificationIcon(logoFilePath, client.ArchiveBasename, clientOutputDir, dryRun); err != nil {
+			warnC.Printf("[WARN] Client '%s': notification icon: %v\n", client.AppName, err)
+			continue
+		}
+
+		if verbose {
+			infoC.Printf("[INFO] Client '%s': Icons generated\n", client.AppName)
+		}
+
+		// Duplicate theme and create gradle
+		_, themeErr := flavour.DuplicateTheme(client.ThemeID, client.ArchiveBasename, clientOutputDir, &client, dryRun)
+		if themeErr != nil {
+			warnC.Printf("[WARN] Client '%s': duplicate theme: %v\n", client.AppName, err)
+			continue
+		}
+
+		if verbose {
+			infoC.Printf("[INFO] Client '%s': Gradle created\n", client.AppName)
+		}
+
+		// Update build_type.gradle and flavours.gradle
+		if !dryRun {
+			if err := flavour.AddFlavorToBuildType(client.ArchiveBasename, androidProject, dryRun); err != nil {
+				warnC.Printf("[WARN] Client '%s': build_type.gradle: %v\n", client.AppName, err)
+			}
+			if err := flavour.AddFlavorToFlavours(client.ArchiveBasename, androidProject, dryRun); err != nil {
+				warnC.Printf("[WARN] Client '%s': flavours.gradle: %v\n", client.AppName, err)
+			}
+		}
+
+		// Generate keystore
+		keystorePath, err := keystore.Generate(&client, clientOutputDir, dryRun)
+		if err != nil {
+			warnC.Printf("[WARN] Client '%s': keystore: %v\n", client.AppName, err)
+			continue
+		}
+		if verbose && keystorePath != "" {
+			infoC.Printf("[INFO] Client '%s': Keystore: %s\n", client.AppName, keystorePath)
+		}
+
+		// Copy google-services.json
+		gsDest := filepath.Join(clientOutputDir, "app/src", client.ArchiveBasename, "google-services.json")
+		if _, err := os.Stat(gsFile); err == nil && !dryRun {
+			if data, err := os.ReadFile(gsFile); err == nil {
+				os.WriteFile(gsDest, data, 0644)
+			}
+		}
+
+		boldC.Print("✅ ")
+		successC.Printf("Flavor created: %s\n", client.ArchiveBasename)
+		successCount++
 	}
 
-	// Success
-	boldC.Print("✅ ")
-	successC.Printf("Flavor created: %s\n", clientData.ArchiveBasename)
+	// Summary
+	if len(clients) > 1 {
+		infoC.Printf("\n[INFO] Processed %d/%d clients successfully\n", successCount, len(clients))
+	}
+
+	if successCount == 0 {
+		return errors.New("no flavors were created")
+	}
+
 	if dryRun {
 		warnC.Println("(dry-run mode)")
 	}
+
 	return nil
 }
 
@@ -221,20 +244,6 @@ func checkPrerequisites() error {
 		warnC.Println("[WARN] Gradle not found (optional)")
 	}
 	return nil
-}
-
-// loadClientData loads and computes client data from JSON file
-func loadClientData(path string) (*config.ClientData, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var cd config.ClientData
-	if err := json.Unmarshal(data, &cd); err != nil {
-		return nil, err
-	}
-	cd.Compute()
-	return &cd, nil
 }
 
 // resolveLogoPath finds the logo file path

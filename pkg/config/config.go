@@ -32,6 +32,47 @@ type ClientData struct {
 	EducationNumber int    `json:"education_number,omitempty"`   // From google-services.json
 }
 
+// ClientDataArray represents multiple clients (for batch processing)
+type ClientDataArray []ClientData
+
+// UnmarshalJSON handles both single client and array of clients
+func (cda *ClientDataArray) UnmarshalJSON(data []byte) error {
+	// Try to parse as array first
+	var clients []ClientData
+	if err := json.Unmarshal(data, &clients); err == nil {
+		*cda = clients
+		return nil
+	}
+
+	// If array fails, try single client
+	var client ClientData
+	if err := json.Unmarshal(data, &client); err != nil {
+		return err
+	}
+	*cda = []ClientData{client}
+	return nil
+}
+
+// LoadClientData loads client data from JSON file (supports single or array)
+func LoadClientData(path string) ([]ClientData, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var clients ClientDataArray
+	if err := json.Unmarshal(data, &clients); err != nil {
+		return nil, err
+	}
+
+	// Compute derived fields for each client
+	for i := range clients {
+		clients[i].Compute()
+	}
+
+	return clients, nil
+}
+
 // Compute calculates derived fields from the input data
 func (cd *ClientData) Compute() {
 	// Default version_name
@@ -60,17 +101,6 @@ func (cd *ClientData) Compute() {
 
 	// DOWNLOAD_FOLDER_NAME = archivebasename
 	cd.DownloadFolder = cd.ArchiveBasename
-}
-
-// UnmarshalJSON parses JSON data into ClientData
-func (cd *ClientData) UnmarshalJSON(data []byte) error {
-	type Alias ClientData
-	var aux Alias
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-	*cd = ClientData(aux)
-	return nil
 }
 
 // Validate checks if required fields are present

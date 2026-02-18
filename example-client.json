@@ -4,8 +4,5 @@
   "package_name": "com.mycompany.myapp",
   "theme_id": 1,
   "app_logo": "app_logo.png",
-  "base_url": "https://api.example.com/",
-  "firebase_url": "https://myapp.firebaseio.com/",
-  "dynamic_link_domain": "https://example.com/",
-  "dynamic_link_prefix": "https://myapp.page.link"
+  "base_url": "https://api.example.com/"
 }
