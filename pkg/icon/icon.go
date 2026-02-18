@@ -12,7 +12,7 @@ import (
 	"github.com/disintegration/imaging"
 )
 
-// GetBackgroundColor extracts dominant color from logo corners for adaptive icon background
+// GetBackgroundColor returns white background by default (or custom color if provided)
 func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGBA, error) {
 	var target color.RGBA
 
@@ -24,41 +24,8 @@ func GetBackgroundColor(bgColor string, autoBG bool, logoPath string) (color.RGB
 		return color.RGBA{R: r, G: g, B: b, A: 255}, nil
 	}
 
-	// Auto-detect from logo corners
-	if autoBG {
-		img, err := imaging.Open(logoPath)
-		if err != nil {
-			return target, fmt.Errorf("cannot open logo: %w", err)
-		}
-		bounds := img.Bounds()
-		w, h := bounds.Dx(), bounds.Dy()
-		if w == 0 || h == 0 {
-			return target, fmt.Errorf("invalid image size")
-		}
-
-		// Sample 4 corners
-		corners := []image.Point{{0, 0}, {w - 1, 0}, {0, h - 1}, {w - 1, h - 1}}
-		var rSum, gSum, bSum, count int
-		for _, p := range corners {
-			c := img.At(p.X, p.Y)
-			r, g, b, _ := c.RGBA()
-			rSum += int(r >> 8)
-			gSum += int(g >> 8)
-			bSum += int(b >> 8)
-			count++
-		}
-		if count == 0 {
-			return target, fmt.Errorf("no corner samples")
-		}
-		target = color.RGBA{
-			R: uint8(rSum / count),
-			G: uint8(gSum / count),
-			B: uint8(bSum / count),
-			A: 255,
-		}
-	} else {
-		target = color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	}
+	// Default to white background
+	target = color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	return target, nil
 }
 
@@ -70,21 +37,23 @@ func parseHex(s string) uint8 {
 
 // IconPaths holds output file paths for generated icons
 type IconPaths struct {
-	AdaptiveXML   string
-	LegacyMDpi    string
-	LegacyHdpi    string
-	LegacyXhdpi   string
-	LegacyXXhdpi  string
-	LegacyXXXhdpi string
-	NotifMDpi     string
-	NotifHdpi     string
-	NotifXhdpi    string
-	NotifXXhdpi   string
-	NotifXXXhdpi  string
-	AppLogo       string
+	AdaptiveXML     string
+	LegacyMDpi     string
+	LegacyHdpi     string
+	LegacyXhdpi    string
+	LegacyXXhdpi   string
+	LegacyXXXhdpi  string
+	Foreground512  string // 512x512 foreground
+	Playstore      string // ic_launcher-playstore.png
+	NotifMDpi      string
+	NotifHdpi      string
+	NotifXhdpi     string
+	NotifXXhdpi    string
+	NotifXXXhdpi   string
+	AppLogo        string
 }
 
-// GenerateAppIcon creates launcher icons: adaptive XML + legacy PNGs + 512x512 app_logo
+// GenerateAppIcon creates launcher icons: adaptive XML + legacy PNGs + playstore icon
 func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun bool) (IconPaths, error) {
 	var paths IconPaths
 
@@ -93,10 +62,10 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 		return paths, fmt.Errorf("load logo: %w", err)
 	}
 
-	// Resize logo for foreground
+	// Resize logo for foreground (transparent background)
 	fg := imaging.Resize(logo, 512, 512, imaging.Lanczos)
 
-	// Create background
+	// Create white background
 	bgImg := image.NewRGBA(image.Rect(0, 0, 512, 512))
 	draw.Draw(bgImg, bgImg.Bounds(), &image.Uniform{C: bg}, image.Point{}, draw.Src)
 
@@ -106,25 +75,39 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 	offset := (512 - fg.Bounds().Dx()) / 2
 	draw.Draw(combined, fg.Bounds().Add(image.Pt(offset, offset)), fg, image.Point{}, draw.Over)
 
+	resDir := filepath.Join(outputDir, "app/src", baseName, "res")
+
 	if !dryRun {
-		// Save 512x512 app_logo.png in drawable
-		drawableDir := filepath.Join(outputDir, "app/src", baseName, "res/drawable")
-		if err := os.MkdirAll(drawableDir, 0755); err != nil {
-			return paths, err
-		}
+		// Save 512x512 app_logo.png in drawable (white background)
+		drawableDir := filepath.Join(resDir, "drawable")
+		os.MkdirAll(drawableDir, 0755)
 		appLogoPath := filepath.Join(drawableDir, "app_logo.png")
 		if f, err := os.Create(appLogoPath); err == nil {
-			png.Encode(f, fg)
+			png.Encode(f, combined)
 			f.Close()
 			paths.AppLogo = appLogoPath
 		}
 
-		// Create adaptive icon XML
-		xmlDir := filepath.Join(outputDir, "app/src", baseName, "res/mipmap-anydpi-v26")
+		// Save 512x512 foreground (transparent) for adaptive icons
+		foregroundPath := filepath.Join(drawableDir, "ic_launcher_foreground.png")
+		if f, err := os.Create(foregroundPath); err == nil {
+			png.Encode(f, fg)
+			f.Close()
+			paths.Foreground512 = foregroundPath
+		}
+
+		// Create adaptive icon XML for ic_launcher
+		xmlDir := filepath.Join(resDir, "mipmap-anydpi-v26")
 		os.MkdirAll(xmlDir, 0755)
-		xmlPath := filepath.Join(xmlDir, "ic_launcher.xml")
-		os.WriteFile(xmlPath, []byte(generateAdaptiveXML("ic_launcher")), 0644)
-		paths.AdaptiveXML = xmlPath
+
+		// ic_launcher.xml
+		launcherXML := generateAdaptiveXML("ic_launcher")
+		os.WriteFile(filepath.Join(xmlDir, "ic_launcher.xml"), []byte(launcherXML), 0644)
+		paths.AdaptiveXML = filepath.Join(xmlDir, "ic_launcher.xml")
+
+		// ic_launcher_round.xml
+		roundXML := generateAdaptiveXML("ic_launcher_round")
+		os.WriteFile(filepath.Join(xmlDir, "ic_launcher_round.xml"), []byte(roundXML), 0644)
 	}
 
 	// Generate legacy launcher icons at different densities
@@ -134,18 +117,59 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 	}{
 		{"mdpi", 48}, {"hdpi", 72}, {"xhdpi", 96}, {"xxhdpi", 144}, {"xxxhdpi", 192},
 	}
-	outputBase := filepath.Join(outputDir, "app/src", baseName, "res")
+
+	// Resize foreground for each density
+	foregroundImages := make(map[string]image.Image)
 	for _, d := range densities {
+		img := imaging.Resize(fg, d.size, d.size, imaging.Lanczos)
+		foregroundImages[d.name] = img
+	}
+
+	for _, d := range densities {
+		// Combined icon (with background)
 		img := imaging.Resize(combined, d.size, d.size, imaging.Lanczos)
-		dir := filepath.Join(outputBase, "mipmap-"+d.name)
+		dir := filepath.Join(resDir, "mipmap-"+d.name)
 		if !dryRun {
 			os.MkdirAll(dir, 0755)
+			// ic_launcher.png
 			outPath := filepath.Join(dir, "ic_launcher.png")
 			if f, err := os.Create(outPath); err == nil {
 				png.Encode(f, img)
 				f.Close()
 				setLegacyPath(&paths, d.name, outPath)
 			}
+			// ic_launcher_foreground.png (transparent foreground only)
+			fgPath := filepath.Join(dir, "ic_launcher_foreground.png")
+			if f, err := os.Create(fgPath); err == nil {
+				png.Encode(f, foregroundImages[d.name])
+				f.Close()
+			}
+		}
+	}
+
+	// Generate ic_launcher_round - for API 25+ (adaptive icon with round shape)
+	for _, d := range densities {
+		img := imaging.Resize(combined, d.size, d.size, imaging.Lanczos)
+		dir := filepath.Join(resDir, "mipmap-"+d.name)
+		if !dryRun {
+			// ic_launcher_round.png - same as ic_launcher for now
+			roundPath := filepath.Join(dir, "ic_launcher_round.png")
+			if f, err := os.Create(roundPath); err == nil {
+				png.Encode(f, img)
+				f.Close()
+			}
+		}
+	}
+
+	// Create ic_launcher-playstore.png (512x512 with white bg, same as app_logo)
+	// This goes in the root of src/<flavor>/ (same level as google-services.json)
+	if !dryRun {
+		srcDir := filepath.Join(outputDir, "app/src", baseName)
+		playstorePath := filepath.Join(srcDir, "ic_launcher-playstore.png")
+		if f, err := os.Create(playstorePath); err == nil {
+			png.Encode(f, combined)
+			f.Close()
+			paths.Playstore = playstorePath
 		}
 	}
 
@@ -171,7 +195,7 @@ func generateAdaptiveXML(name string) string {
 	return fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@mipmap/%s_foreground"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
 </adaptive-icon>`, name)
 }
 

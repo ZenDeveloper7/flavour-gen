@@ -97,11 +97,16 @@ func processGradle(text string, themeID int, cd *config.ClientData) string {
 			ReplaceAllString(text, fmt.Sprintf("//Education %d", cd.EducationNumber))
 	}
 
-	// Replace flavor name (with _km suffix)
-	oldFlavorName := fmt.Sprintf("appx_theme%d_km", themeID)
-	text = strings.ReplaceAll(text, oldFlavorName, cd.ArchiveBasename)
-	// Also replace without suffix
-	oldFlavorName = fmt.Sprintf("appx_theme%d", themeID)
+	// Replace flavor name - handle various suffixes like _km, _lakshya, etc.
+	// First try with common suffixes
+	suffixes := []string{"_km", "_lakshya", ""}
+	for _, suffix := range suffixes {
+		oldFlavorName := fmt.Sprintf("appx_theme%d%s", themeID, suffix)
+		text = strings.ReplaceAll(text, oldFlavorName, cd.ArchiveBasename)
+	}
+
+	// Also replace just appx_theme{id} without any suffix
+	oldFlavorName := fmt.Sprintf("appx_theme%d", themeID)
 	text = strings.ReplaceAll(text, oldFlavorName, cd.ArchiveBasename)
 
 	// Replace simple key-value pairs
@@ -181,7 +186,7 @@ func replaceBuildConfig(text, fieldType, key, newValue string) string {
 		return text
 	}
 	oldPattern := fmt.Sprintf(`buildConfigField("%s", "%s", "\"%s\"")`, fieldType, key, old)
-	newPattern := fmt.Sprintf(`buildConfigField("%s", "%s", "\"%s\")`, fieldType, key, newValue)
+	newPattern := fmt.Sprintf(`buildConfigField("%s", "%s", "\"%s\"")`, fieldType, key, newValue)
 	return strings.ReplaceAll(text, oldPattern, newPattern)
 }
 

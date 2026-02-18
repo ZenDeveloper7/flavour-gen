@@ -23,7 +23,6 @@ var (
 	inputPath  string
 	logoPath   string
 	bgColor    string
-	autoBG     bool
 	outputDir  string
 	dryRun     bool
 	verbose    bool
@@ -47,8 +46,7 @@ var createCmd = &cobra.Command{
 func init() {
 	createCmd.Flags().StringVar(&inputPath, "input", "", "Input folder with data.json and google-services.json [required]")
 	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [optional - uses app_logo from data.json]")
-	createCmd.Flags().StringVar(&bgColor, "bg-color", "", "Background color #RRGGBB (auto-detected if empty)")
-	createCmd.Flags().BoolVar(&autoBG, "auto-bg", true, "Auto-detect background from logo")
+	createCmd.Flags().StringVar(&bgColor, "bg-color", "", "Background color #RRGGBB (default: white)")
 	createCmd.Flags().StringVar(&outputDir, "output-dir", "./output", "Output directory")
 	createCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without writing files")
 	createCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose logging")
@@ -149,7 +147,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Process icons
-	bg, err := icon.GetBackgroundColor(bgColor, autoBG, logoPath)
+	bg, err := icon.GetBackgroundColor(bgColor, false, logoPath)
 	if err != nil {
 		return fmt.Errorf("background color: %w", err)
 	}

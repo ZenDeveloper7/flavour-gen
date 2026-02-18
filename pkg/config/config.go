@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -40,7 +41,7 @@ func (cd *ClientData) Compute() {
 
 	// Default version_code
 	if cd.VersionCode == 0 {
-		cd.VersionCode = 0
+		cd.VersionCode = 1
 	}
 
 	// TestBaseURL defaults to BaseURL
@@ -98,10 +99,20 @@ func (cd *ClientData) Validate() error {
 // GoogleServicesJSON represents the structure of google-services.json
 type GoogleServicesJSON struct {
 	ProjectInfo ProjectInfo `json:"project_info"`
+	Client      []Client    `json:"client"`
 }
 
 type ProjectInfo struct {
 	ProjectNumber string `json:"project_number"`
+	ProjectID    string `json:"project_id"`
+}
+
+type Client struct {
+	OAuthInfo []OAuthInfo `json:"oauth_client"`
+}
+
+type OAuthInfo struct {
+	ClientID string `json:"client_id"`
 }
 
 // ExtractEducationNumber extracts education_number from google-services.json
@@ -116,14 +127,24 @@ func ExtractEducationNumber(gsJSONPath string) (int, error) {
 		return 0, err
 	}
 
-	// Project number is the education number
-	if gs.ProjectInfo.ProjectNumber == "" {
-		return 0, fmt.Errorf("project_number not found in google-services.json")
+	// Try to get from project_id first (e.g., "education-303-xxx" -> 303)
+	if gs.ProjectInfo.ProjectID != "" {
+		// Extract number from project_id (e.g., "education-303-default-rtdb" -> 303)
+		parts := strings.Split(gs.ProjectInfo.ProjectID, "-")
+		for _, part := range parts {
+			if len(part) == 3 {
+				if num, err := strconv.Atoi(part); err == nil && num > 0 {
+					return num, nil
+				}
+			}
+		}
 	}
 
-	// Convert project number to int
-	var projectNum int
-	fmt.Sscanf(gs.ProjectInfo.ProjectNumber, "%d", &projectNum)
+	// Fallback: use last 3 digits of project_number
+	if gs.ProjectInfo.ProjectNumber != "" {
+		num, _ := strconv.ParseInt(gs.ProjectInfo.ProjectNumber, 10, 64)
+		return int(num % 1000), nil
+	}
 
-	return projectNum, nil
+	return 0, fmt.Errorf("project_id or project_number not found in google-services.json")
 }
