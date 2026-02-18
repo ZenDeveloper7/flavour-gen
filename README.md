@@ -4,22 +4,21 @@
 [![Go](https://img.shields.io/badge/Go-1.21-blue.svg)](https://golang.org)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/ZenDeveloper7/flavour-gen-releases)
 
-A Go-based CLI tool to generate complete Android app flavor packages, including icons, keystores, and Gradle configuration.
+A Go-based CLI tool to generate complete Android app flavor packages from client data. Automatically creates icons, keystores, Gradle configuration, and updates build files.
 
 ## Features
 
-- Create full flavor package from a JSON client data file and a PNG logo
-- Auto‑detect background color from logo corners (optional)
-- Generate adaptive launcher icons and legacy PNGs in all densities
-- Create notification icons (WEBP)
-- Duplicate theme templates and substitute Gradle placeholders
-- Generate Java keystore (JKS) for signing
-- Dry‑run mode to preview output
+- 🎨 **Icon Generation** - Adaptive launcher icons + legacy PNGs, notification icons (white on transparent)
+- 🔐 **Keystore Generation** - Creates JKS keystore and updates `keystore.gradle`
+- 📄 **Gradle Updates** - Duplicates theme, updates `build_type.gradle` and `flavours.gradle`
+- 🔍 **Smart Detection** - Auto-detects background color from logo corners
+- 🧪 **Dry-Run Mode** - Preview actions without writing files
+- 📁 **Simple Input** - Just drop a folder with `data.json` and `google-services.json`
 
 ## Prerequisites
 
-- **For prebuilt binary:** `curl`, `bash`, `sudo` (optional) – no Go needed.
-- **For building from source:** Go 1.21+, Java JDK (`keytool`), Gradle (optional for validation).
+- **For prebuilt binary:** `curl`, `bash`, `sudo` (optional)
+- **For building from source:** Go 1.21+, Java JDK (`keytool`)
 
 ## Installation
 
@@ -29,109 +28,146 @@ A Go-based CLI tool to generate complete Android app flavor packages, including 
 curl -sSL https://raw.githubusercontent.com/ZenDeveloper7/flavour-gen-releases/master/install.sh | bash
 ```
 
-This downloads and installs the latest binary to `/usr/local/bin/flavour-gen`.
-
 ### Manual Download
 
-Download the latest release for your platform:
+Download from [Releases](https://github.com/ZenDeveloper7/flavour-gen-releases/releases):
 
-- **Linux:** [flavour-gen-linux-amd64](https://github.com/ZenDeveloper7/flavour-gen-releases/raw/master/flavour-gen-linux-amd64)
-- **macOS:** [flavour-gen-darwin-amd64](https://github.com/ZenDeveloper7/flavour-gen-releases/raw/master/flavour-gen-darwin-amd64)
-- **Windows:** [flavour-gen-windows-amd64.exe](https://github.com/ZenDeveloper7/flavour-gen-releases/raw/master/flavour-gen-windows-amd64.exe)
-
-```bash
-# Linux/macOS
-chmod +x flavour-gen-linux-amd64
-sudo mv flavour-gen-linux-amd64 /usr/local/bin/flavour-gen
-
-# Windows
-move flavour-gen-windows-amd64.exe flavour-gen.exe
-```
+- **Linux:** `flavour-gen-linux-amd64`
+- **macOS:** `flavour-gen-darwin-amd64`
+- **Windows:** `flavour-gen-windows-amd64.exe`
 
 ### Build from Source
 
 ```bash
 git clone https://github.com/ZenDeveloper7/flavour-gen.git
 cd flavour-gen
-go mod tidy
 go build -o flavour-gen .
-sudo mv flavour-gen /usr/local/bin/
 ```
 
-### Go Install
-
-If you have Go installed:
+## Quick Start
 
 ```bash
-go install github.com/ZenDeveloper7/flavour-gen@latest
+flavour-gen create --input ./client-folder --output-dir /path/to/AndroidProject/app/output
+```
+
+## Input Folder Structure
+
+```
+client-folder/
+├── data.json              # Client configuration (required)
+├── google-services.json  # Firebase config (optional)
+└── app_logo.png          # Logo image (required)
+```
+
+## data.json Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `app_name` | ✅ | Display name of the app |
+| `archivebasename` | ✅ | Archive name (e.g., `physics_setu`) |
+| `package_name` | ✅ | Android package (e.g., `com.ydcfzb.zgizxw`) |
+| `version_name` | ✅ | Version string (e.g., `1.0.0`) |
+| `version_code` | ✅ | Version code (integer) |
+| `theme_id` | ✅ | Theme ID to use (e.g., `1`) |
+| `app_logo` | ✅ | Path to logo file relative to input folder |
+| `education_number` | - | Education number for gradle comment |
+| `base_url` | ✅ | Production API base URL |
+| `test_base_url` | ✅ | Test API base URL |
+| `firebase_url` | - | Firebase database URL |
+| `dynamic_link_domain` | - | Dynamic Links domain |
+| `dynamic_link_prefix` | - | Dynamic Links prefix |
+
+**Example:**
+
+```json
+{
+  "app_name": "Physics Setu",
+  "archivebasename": "physics_setu",
+  "package_name": "com.ydcfzb.zgizxw",
+  "version_name": "1.0.0",
+  "version_code": 0,
+  "theme_id": 1,
+  "app_logo": "app_logo.png",
+  "education_number": 20,
+  "base_url": "https://physicssetuapi.akamai.net.in/",
+  "test_base_url": "https://physicssetuapi.akamai.net.in/",
+  "firebase_url": "https://physicssetuappx.firebaseio.com/",
+  "dynamic_link_domain": "https://physicssetu.classx.co.in/",
+  "dynamic_link_prefix": "https://physicssetu.page.link"
+}
 ```
 
 ## Usage
 
 ```bash
-./flavour-gen create --help
-./flavour-gen create \
-  --client-data example-client.json \
-  --theme-id 1 \
-  --logo path/to/logo.png \
-  --output-dir ./output
+# Basic usage
+flavour-gen create --input ./client-data --output-dir ./app/output
+
+# With custom logo (overrides app_logo in data.json)
+flavour-gen create --input ./client-data --logo ./custom-logo.png --output-dir ./app/output
+
+# With custom background color
+flavour-gen create --input ./client-data --bg-color "#FF5722" --output-dir ./app/output
+
+# Dry run (preview without creating files)
+flavour-gen create --input ./client-data --output-dir ./app/output --dry-run -v
 ```
-
-### Client Data File
-
-See `templates/client-data-template.json` for required fields. Example:
-
-```json
-{
-  "app_name": "App Name",
-  "archivebasename": "app_name",
-  "package_name": "com.package.name",
-  "version_name": "1.0.0",
-  "version_code": 0,
-  "base_url": "https://...",
-  "test_base_url": "https://...",
-  "firebase_url": "https://...firebaseio.com/",
-  "dynamic_link_domain": "https://...",
-  "dynamic_link_prefix": "https://..."
-}
-```
-
-Computed fields (generated automatically): `IDENTITY`, `DOT_COUNT`, `ALT_APP_NAME`, `DOWNLOAD_FOLDER_NAME`.
 
 ## Output Structure
 
 ```
 output/
 └── app/
-    ├── keystore/<archivebasename>.jks
-    ├── flavours/<archivebasename>.gradle
-    └── src/<archivebasename>/
-        ├── google-services.json (if in theme template)
-        └── res/
-            ├── drawable(-hdpi|mdpi|xhdpi|xxhdpi|xxxhdpi)/
-            │   └── ic_notification_icon.webp
-            ├── mipmap-anydpi-v26/
-            │   └── ic_launcher.xml
-            └── mipmap-(hdpi|mdpi|xhdpi|xxhdpi|xxxhdpi)/
-                └── ic_launcher.png
+    ├── keystore/
+    │   └── <archivebasename>.jks          # Generated keystore
+    ├── flavours/
+    │   └── <archivebasename>.gradle       # Flavor gradle
+    └── src/
+        └── <archivebasename>/
+            ├── google-services.json         # Copied from input
+            └── res/
+                ├── drawable/
+                │   └── app_logo.png        # 512x512 logo
+                ├── drawable-*/
+                │   └── ic_notification_icon.png
+                ├── mipmap-*/
+                │   └── ic_launcher.png
+                └── mipmap-anydpi-v26/
+                    └── ic_launcher.xml
 ```
+
+## What Gets Updated
+
+The CLI automatically updates these files in your Android project:
+
+1. **`app/flavours/<name>.gradle`** - Created from theme template with replaced values
+2. **`app/build_type.gradle`** - Added `productFlavors.<name>.signingConfig` entry
+3. **`app/flavours.gradle`** - Added `apply from: './flavours/<name>.gradle'`
+4. **`app/keystore.gradle`** - Added signing config block
 
 ## Error Handling
 
-- `keytool not installed` → Install Java JDK
-- `gradle not installed` → Install Gradle (optional, only for validation)
-- `Theme {id} not found` → Check templates folder for `appx_theme{id}_sample` and `appx_theme{id}.gradle`
-- `Logo must be PNG`
-- `Cannot write to output directory`
+| Error | Solution |
+|-------|----------|
+| `keytool not found` | Install Java JDK |
+| `theme_id is required` | Add `theme_id` to data.json |
+| `app_logo is required` | Add `app_logo` to data.json |
+| `Theme X not found` | Ensure theme X exists in `app/flavours/appx_themeX.gradle` |
+| `Logo must be PNG` | Convert logo to PNG format |
 
 ## Development
 
-Run dry‑run to inspect actions without writing files:
-
 ```bash
-./flavour-gen create --client-data example-client.json --theme-id 1 --logo logo.png --dry-run -v
+# Run tests
+go test ./...
+
+# Build
+go build -o flavour-gen .
+
+# Dry run with verbose output
+./flavour-gen create --input ./test-data --output-dir ./output --dry-run -v
 ```
 
 ## License
 
-MIT. Contributions welcome!
+MIT
