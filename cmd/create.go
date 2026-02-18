@@ -20,14 +20,13 @@ import (
 )
 
 var (
-	clientDataPath string
-	themeID       int
-	logoPath      string
-	bgColor       string
-	autoBG        bool
-	outputDir     string
-	dryRun        bool
-	verbose       bool
+	inputPath  string
+	logoPath   string
+	bgColor    string
+	autoBG     bool
+	outputDir  string
+	dryRun     bool
+	verbose    bool
 )
 
 // Color helpers
@@ -46,8 +45,7 @@ var createCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.Flags().StringVar(&clientDataPath, "client-data", "", "Client data file (JSON) [required]")
-	createCmd.Flags().IntVar(&themeID, "theme-id", 0, "Theme ID [required]")
+	createCmd.Flags().StringVar(&inputPath, "input", "", "Input folder containing data.json and google-services.json [required]")
 	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [required]")
 	createCmd.Flags().StringVar(&bgColor, "bg-color", "", "Background color #RRGGBB (auto-detected if empty)")
 	createCmd.Flags().BoolVar(&autoBG, "auto-bg", true, "Auto-detect background from logo")
@@ -55,8 +53,7 @@ func init() {
 	createCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without writing files")
 	createCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose logging")
 
-	createCmd.MarkFlagRequired("client-data")
-	createCmd.MarkFlagRequired("theme-id")
+	createCmd.MarkFlagRequired("input")
 	createCmd.MarkFlagRequired("logo")
 }
 
@@ -70,10 +67,26 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("prerequisites check failed: %w", err)
 	}
 
-	// Step 2: Validate inputs
-	clientData, err := loadClientData(clientDataPath)
+	// Step 2: Validate input folder
+	inputDir, err := os.Stat(inputPath)
 	if err != nil {
-		return fmt.Errorf("client data: %w", err)
+		return fmt.Errorf("input folder: %w", err)
+	}
+	if !inputDir.IsDir() {
+		return errors.New("input must be a folder")
+	}
+
+	// Load data.json
+	dataFile := filepath.Join(inputPath, "data.json")
+	clientData, err := loadClientData(dataFile)
+	if err != nil {
+		return fmt.Errorf("load data.json: %w", err)
+	}
+
+	// Validate theme ID
+	themeID := clientData.ThemeID
+	if themeID <= 0 {
+		return errors.New("theme_id is required in data.json")
 	}
 
 	// Validate theme exists
@@ -83,6 +96,13 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 	if !slices.Contains(availableThemes, themeID) {
 		return fmt.Errorf("theme %d not found. available: %v", themeID, availableThemes)
+	}
+
+	// Check for google-services.json
+	gsFile := filepath.Join(inputPath, "google-services.json")
+	hasGS := false
+	if _, err := os.Stat(gsFile); err == nil {
+		hasGS = true
 	}
 
 	// Validate logo
@@ -102,6 +122,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		infoC.Printf("[INFO] Client: %s (%s)\n", clientData.AppName, clientData.ArchiveBasename)
 		infoC.Printf("[INFO] Theme: %d\n", themeID)
 		infoC.Printf("[INFO] Output: %s\n", outputDir)
+		infoC.Printf("[INFO] google-services.json: %v\n", hasGS)
 	}
 
 	// Step 3: Create folder structure
@@ -165,21 +186,17 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		infoC.Printf("[INFO] Keystore: %s\n", keystorePath)
 	}
 
-	// Step 7: Copy google-services.json if available and firebase URL provided
-	if clientData.FirebaseURL != "" {
-		src := filepath.Join("templates", fmt.Sprintf("appx_theme%d_sample", themeID), "google-services.json")
+	// Step 7: Copy google-services.json if available
+	if hasGS {
+		src := gsFile
 		dst := filepath.Join(outputDir, "app/src", clientData.ArchiveBasename, "google-services.json")
-		if _, err := os.Stat(src); err == nil {
-			if !dryRun {
-				if err := copyFile(src, dst); err != nil {
-					return fmt.Errorf("copy google-services.json: %w", err)
-				}
+		if !dryRun {
+			if err := copyFile(src, dst); err != nil {
+				return fmt.Errorf("copy google-services.json: %w", err)
 			}
-			if verbose {
-				infoC.Println("[INFO] google-services.json copied")
-			}
-		} else if verbose {
-			warnC.Println("[WARN] google-services.json not found in theme template")
+		}
+		if verbose {
+			infoC.Println("[INFO] google-services.json copied")
 		}
 	}
 

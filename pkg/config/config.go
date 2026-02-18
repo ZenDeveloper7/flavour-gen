@@ -11,6 +11,7 @@ type ClientData struct {
 	PackageName       string `json:"package_name"`
 	VersionName       string `json:"version_name"`
 	VersionCode       int    `json:"version_code"`
+	ThemeID           int    `json:"theme_id"`
 	BaseURL           string `json:"base_url"`
 	TestBaseURL       string `json:"test_base_url"`
 	FirebaseURL       string `json:"firebase_url"`
@@ -18,10 +19,10 @@ type ClientData struct {
 	DynamicLinkPrefix string `json:"dynamic_link_prefix"`
 
 	// Computed fields (internal)
-	Identity          string `json:"identity,omitempty"`
-	DotCount          int    `json:"dot_count,omitempty"`
-	AltAppName        string `json:"alt_app_name,omitempty"`
-	DownloadFolder    string `json:"download_folder,omitempty"`
+	Identity       string `json:"identity,omitempty"`
+	DotCount       int    `json:"dot_count,omitempty"`
+	AltAppName    string `json:"alt_app_name,omitempty"`
+	DownloadFolder string `json:"download_folder,omitempty"`
 }
 
 // Compute fills derived fields from package name and app name
