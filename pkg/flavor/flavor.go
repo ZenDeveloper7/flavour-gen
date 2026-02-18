@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/ZenDeveloper7/flavour-gen/pkg/config"
@@ -69,43 +68,44 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 			return files, fmt.Errorf("copy theme folder: %w", err)
 		}
 
-		// Read the theme gradle and modify it
+		// Read the theme gradle
 		gradleContent, err := os.ReadFile(srcGradle)
 		if err != nil {
 			return files, fmt.Errorf("read theme gradle: %w", err)
 		}
-		
-		// Replace values in gradle
+
 		text := string(gradleContent)
-		
+
 		// Replace the flavor name (e.g., appx_theme1 -> knr_logics_clone)
 		// This handles both the flavor block name and archivesBaseName
 		text = strings.ReplaceAll(text, fmt.Sprintf("appx_theme%d", themeID), cd.ArchiveBasename)
-		
-		// Replace applicationId
-		text = replaceGradleValue(text, "applicationId", cd.PackageName)
-		
+
+		// Replace applicationId - find the line and replace the value
+		text = replaceGradleLine(text, "applicationId", cd.PackageName)
+
 		// Replace versionName
-		text = replaceGradleValue(text, "versionName", fmt.Sprintf("\"%s\"", cd.VersionName))
-		
-		// Replace versionCode
-		text = replaceGradleValue(text, "versionCode", fmt.Sprintf("%d", cd.VersionCode))
-		
+		text = replaceGradleLine(text, "versionName", cd.VersionName)
+
+		// Replace versionCode (integer, no quotes)
+		text = replaceGradleLineInt(text, "versionCode", cd.VersionCode)
+
 		// Replace app_name in resValue
-		text = replaceGradleResValue(text, "app_name", cd.AppName)
-		
-		// Replace URLs and other key values
-		text = replaceGradleBuildConfig(text, "BASE_URL", cd.BaseURL)
-		text = replaceGradleBuildConfig(text, "TEST_BASE_URL", cd.TestBaseURL)
-		text = replaceGradleBuildConfig(text, "FIREBASE_URL", cd.FirebaseURL)
-		text = replaceGradleBuildConfig(text, "APP_NAME", cd.AppName)
-		text = replaceGradleBuildConfig(text, "ALT_APP_NAME", cd.AltAppName)
-		text = replaceGradleBuildConfig(text, "DOWNLOAD_FOLDER_NAME", cd.DownloadFolder)
-		text = replaceGradleBuildConfig(text, "IDENTITY", cd.Identity)
-		text = replaceGradleBuildConfig(text, "DYNAMIC_LINK_DOMAIN", cd.DynamicLinkDomain)
-		text = replaceGradleBuildConfig(text, "DYNAMIC_LINK_PREFIX", cd.DynamicLinkPrefix)
-		text = replaceGradleBuildConfigInt(text, "DOT_COUNT", cd.DotCount)
-		
+		text = replaceResValue(text, "app_name", cd.AppName)
+
+		// Replace buildConfigField String values - these have escaped quotes
+		text = replaceBuildConfigString(text, "BASE_URL", cd.BaseURL)
+		text = replaceBuildConfigString(text, "TEST_BASE_URL", cd.TestBaseURL)
+		text = replaceBuildConfigString(text, "FIREBASE_URL", cd.FirebaseURL)
+		text = replaceBuildConfigString(text, "APP_NAME", cd.AppName)
+		text = replaceBuildConfigString(text, "ALT_APP_NAME", cd.AltAppName)
+		text = replaceBuildConfigString(text, "DOWNLOAD_FOLDER_NAME", cd.DownloadFolder)
+		text = replaceBuildConfigString(text, "IDENTITY", cd.Identity)
+		text = replaceBuildConfigString(text, "DYNAMIC_LINK_DOMAIN", cd.DynamicLinkDomain)
+		text = replaceBuildConfigString(text, "DYNAMIC_LINK_PREFIX", cd.DynamicLinkPrefix)
+
+		// Replace buildConfigField int values
+		text = replaceBuildConfigInt(text, "DOT_COUNT", cd.DotCount)
+
 		if err := os.WriteFile(dstGradle, []byte(text), 0644); err != nil {
 			return files, fmt.Errorf("write gradle: %w", err)
 		}
@@ -115,6 +115,139 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 	files.GradleFile = dstGradle
 
 	return files, nil
+}
+
+// replaceGradleLine replaces a simple key "value" line
+func replaceGradleLine(text, key, newValue string) string {
+	// Find line containing the key and replace the quoted value
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), key+" ") {
+			// Replace the value in quotes
+			old := fmt.Sprintf(`%s "%s"`, key, extractValue(text, key))
+			if old == fmt.Sprintf(`%s ""`, key) {
+				// Key not found with quoted value
+				continue
+			}
+			lines[i] = strings.ReplaceAll(line, old, fmt.Sprintf(`%s "%s"`, key, newValue))
+			break
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// replaceGradleLineInt replaces a key value (integer, no quotes)
+func replaceGradleLineInt(text, key string, newValue int) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), key+" ") {
+			// Find and replace the integer value
+			oldVal := extractIntValue(line, key)
+			old := fmt.Sprintf(`%s %d`, key, oldVal)
+			lines[i] = strings.ReplaceAll(line, old, fmt.Sprintf(`%s %d`, key, newValue))
+			break
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// replaceResValue replaces resValue "string", "key", "value"
+func replaceResValue(text, key, newValue string) string {
+	old := fmt.Sprintf(`resValue "string", "%s", "%s"`, key, extractResValue(text, key))
+	return strings.ReplaceAll(text, old, fmt.Sprintf(`resValue "string", "%s", "%s"`, key, newValue))
+}
+
+// replaceBuildConfigString replaces buildConfigField("String", "KEY", "\"value\"")
+func replaceBuildConfigString(text, key, newValue string) string {
+	oldValue := extractBuildConfigString(text, key)
+	if oldValue == "" {
+		return text // Key not found
+	}
+	old := fmt.Sprintf(`buildConfigField("String", "%s", "\"%s\"")`, key, oldValue)
+	return strings.ReplaceAll(text, old, fmt.Sprintf(`buildConfigField("String", "%s", "\"%s\"")`, key, newValue))
+}
+
+// replaceBuildConfigInt replaces buildConfigField("int", "KEY", value)
+func replaceBuildConfigInt(text, key string, newValue int) string {
+	old := fmt.Sprintf(`buildConfigField("int", "%s", %d)`, key, extractBuildConfigInt(text, key))
+	if old == fmt.Sprintf(`buildConfigField("int", "%s", 0)`, key) && !containsBuildConfigInt(text, key) {
+		return text // Key not found
+	}
+	return strings.ReplaceAll(text, old, fmt.Sprintf(`buildConfigField("int", "%s", %d)`, key, newValue))
+}
+
+// Helper functions to extract values
+func extractValue(text, key string) string {
+	// Find the line containing the key
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, key+" ") {
+			// Extract value in quotes
+			idx := strings.Index(line, `"`)
+			if idx >= 0 {
+				endIdx := strings.Index(line[idx+1:], `"`)
+				if endIdx >= 0 {
+					return line[idx+1 : idx+1+endIdx]
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func extractIntValue(text, key string) int {
+	// First try to find in lines
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, key+" ") {
+			var val int
+			_, err := fmt.Sscanf(strings.TrimSpace(line), key+" %d", &val)
+			if err == nil {
+				return val
+			}
+		}
+	}
+	return 0
+}
+
+func extractResValue(text, key string) string {
+	pattern := fmt.Sprintf(`resValue "string", "%s", "`, key)
+	idx := strings.Index(text, pattern)
+	if idx >= 0 {
+		start := idx + len(pattern)
+		endIdx := strings.Index(text[start:], `"`)
+		if endIdx >= 0 {
+			return text[start : start+endIdx]
+		}
+	}
+	return ""
+}
+
+func extractBuildConfigString(text, key string) string {
+	pattern := fmt.Sprintf(`buildConfigField("String", "%s", "\"`, key)
+	idx := strings.Index(text, pattern)
+	if idx >= 0 {
+		start := idx + len(pattern)
+		endIdx := strings.Index(text[start:], `\"`)
+		if endIdx >= 0 {
+			return text[start : start+endIdx]
+		}
+	}
+	return ""
+}
+
+func extractBuildConfigInt(text, key string) int {
+	pattern := fmt.Sprintf(`buildConfigField("int", "%s", %%d)`, key)
+	for _, line := range strings.Split(text, "\n") {
+		var val int
+		if _, err := fmt.Sscanf(line, pattern, &val); err == nil {
+			return val
+		}
+	}
+	return 0
+}
+
+func containsBuildConfigInt(text, key string) bool {
+	pattern := fmt.Sprintf(`buildConfigField("int", "%s"`, key)
+	return strings.Contains(text, pattern)
 }
 
 func replacePlaceholders(text string, cd *config.ClientData) string {
@@ -133,11 +266,6 @@ func replacePlaceholders(text string, cd *config.ClientData) string {
 	text = strings.ReplaceAll(text, "${DOT_COUNT}", fmt.Sprintf("%d", cd.DotCount))
 	text = strings.ReplaceAll(text, "${ALT_APP_NAME}", cd.AltAppName)
 	text = strings.ReplaceAll(text, "${DOWNLOAD_FOLDER_NAME}", cd.DownloadFolder)
-	
-	// Also handle non-placeholder format (hardcoded theme values)
-	// Replace applicationId, versionName, versionCode, app_name from theme1
-	// These need to be replaced with client data values
-	// This is done via regexp for more complex patterns in the gradle
 	return text
 }
 
@@ -176,42 +304,10 @@ func copyDir(src, dst string, cd *config.ClientData) error {
 	return nil
 }
 
-// replaceGradleValue replaces a simple gradle property value
-// e.g., replaceGradleValue(text, "applicationId", "com.new.package")
-func replaceGradleValue(text, key, newValue string) string {
-	// Match: key "value" 
-	pattern := fmt.Sprintf(`(%s\s+")[^"]*`, key)
-	re := regexp.MustCompile(pattern)
-	return re.ReplaceAllString(text, fmt.Sprintf(`$1%s"`, newValue))
-}
-
-// replaceGradleResValue replaces resValue "string", "key", "value"
-func replaceGradleResValue(text, key, newValue string) string {
-	// Match: resValue "string", "key", "value"
-	// Captures everything up to the value
-	re := regexp.MustCompile(fmt.Sprintf(`(resValue\s+"string",\s+"%s",\s+")[^"]*`, key))
-	return re.ReplaceAllString(text, fmt.Sprintf(`$1%s"`, newValue))
-}
-
-// replaceGradleBuildConfig replaces buildConfigField("TYPE", "KEY", "value")
-func replaceGradleBuildConfig(text, key, newValue string) string {
-	// Match: buildConfigField("String", "KEY", "value")
-	pattern := fmt.Sprintf(`(buildConfigField\("String",\s+"%s",\s+")[^"]*`, key)
-	re := regexp.MustCompile(pattern)
-	return re.ReplaceAllString(text, fmt.Sprintf(`$1%s"`, newValue))
-}
-
-// replaceGradleBuildConfigInt replaces buildConfigField("int", "KEY", value)
-func replaceGradleBuildConfigInt(text, key string, newValue int) string {
-	pattern := fmt.Sprintf(`(buildConfigField\("int",\s+"%s",\s+)\d+`, key)
-	re := regexp.MustCompile(pattern)
-	return re.ReplaceAllString(text, fmt.Sprintf(`$1%d`, newValue))
-}
-
 // ListThemes scans the project's flavours folder for theme IDs.
 func ListThemes() ([]int, error) {
 	var themes []int
-	
+
 	// Check in flavours folder for gradle files
 	flavoursDir := filepath.Join(templatesDir, "flavours")
 	entries, err := os.ReadDir(flavoursDir)
