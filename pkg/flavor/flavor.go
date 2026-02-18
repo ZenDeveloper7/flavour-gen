@@ -121,6 +121,13 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 		// Replace buildConfigField int values
 		text = replaceBuildConfigInt(text, "DOT_COUNT", cd.DotCount)
 
+		// Add DOT_COUNT if not already present and we have a value
+		if cd.DotCount > 0 && !strings.Contains(text, "DOT_COUNT") {
+			// Find a good place to add it - after another buildConfigField line
+			// We'll add it after the last buildConfigField in the flavor block
+			text = addBuildConfigInt(text, "DOT_COUNT", cd.DotCount)
+		}
+
 		if err := os.WriteFile(dstGradle, []byte(text), 0644); err != nil {
 			return files, fmt.Errorf("write gradle: %w", err)
 		}
@@ -346,6 +353,27 @@ func extractBuildConfigInt(text, key string) int {
 func containsBuildConfigInt(text, key string) bool {
 	pattern := fmt.Sprintf(`buildConfigField("int", "%s"`, key)
 	return strings.Contains(text, pattern)
+}
+
+// addBuildConfigInt adds a new buildConfigField int if it doesn't exist
+func addBuildConfigInt(text, key string, value int) string {
+	newEntry := fmt.Sprintf(`            buildConfigField("int", "%s", %d)`, key, value)
+	
+	// Find the last buildConfigField line and add after it
+	lines := strings.Split(text, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.Contains(lines[i], "buildConfigField") {
+			// Found a buildConfigField, add our new one after it
+			var newLines []string
+			newLines = append(newLines, lines[:i+1]...)
+			newLines = append(newLines, newEntry)
+			newLines = append(newLines, lines[i+1:]...)
+			return strings.Join(newLines, "\n")
+		}
+	}
+	
+	// If no buildConfigField found, just append
+	return text + "\n" + newEntry
 }
 
 func replacePlaceholders(text string, cd *config.ClientData) string {

@@ -230,13 +230,13 @@ func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool)
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				return "", err
 			}
-			outPath := filepath.Join(dir, "ic_notification_icon.webp")
+			outPath := filepath.Join(dir, "ic_notification_icon.png")
 			f, err := os.Create(outPath)
 			if err != nil {
 				return "", err
 			}
 			defer f.Close()
-			// Encode as PNG for now (can add WEBP encoding later)
+			// Encode as PNG
 			if err := png.Encode(f, img); err != nil {
 				return "", err
 			}
