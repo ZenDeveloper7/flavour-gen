@@ -1,8 +1,8 @@
 # Flavour Generator CLI
 
-[![Release](https://img.shields.io/github/v/release/ZenDeveloper7/flavour-gen-releases?include_prereleases&label=release)](https://github.com/ZenDeveloper7/flavour-gen-releases/releases)
+[![Release](https://img.shields.io/github/v/release/ZenDeveloper7/flavour-gen?include_prereleases&label=release)](https://github.com/ZenDeveloper7/flavour-gen/releases)
 [![Go](https://img.shields.io/badge/Go-1.21-blue.svg)](https://golang.org)
-[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/ZenDeveloper7/flavour-gen-releases)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/ZenDeveloper7/flavour-gen)
 
 A Go-based CLI tool to generate complete Android app flavor packages from client data. Automatically creates icons, keystores, Gradle configuration, and updates build files.
 
@@ -25,12 +25,12 @@ A Go-based CLI tool to generate complete Android app flavor packages from client
 ### Quick Install (All Platforms)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/ZenDeveloper7/flavour-gen-releases/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ZenDeveloper7/flavour-gen/master/install.sh | bash
 ```
 
 ### Manual Download
 
-Download from [Releases](https://github.com/ZenDeveloper7/flavour-gen-releases/releases):
+Download from [Releases](https://github.com/ZenDeveloper7/flavour-gen/releases):
 
 - **Linux:** `flavour-gen-linux-amd64`
 - **macOS:** `flavour-gen-darwin-amd64`
