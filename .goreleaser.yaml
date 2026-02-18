@@ -31,11 +31,3 @@ release:
   github:
     owner: ZenDeveloper7
     name: flavour-gen
-
-homebrew:
-  - repository:
-      owner: ZenDeveloper7
-      name: homebrew-tap
-    directory: Formula
-    upload_url: https://github.com/ZenDeveloper7/flavour-gen/releases/download/{{ .Tag }}/{{ .ArtifactName }}
-    url: https://github.com/ZenDeveloper7/flavour-gen/releases/download/{{ .Tag }}/
