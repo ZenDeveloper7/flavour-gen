@@ -112,6 +112,24 @@ func runCreate(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		// Check google-services.json (mandatory)
+		gsFile := filepath.Join(inputPath, "google-services.json")
+		if _, err := os.Stat(gsFile); err != nil {
+			warnC.Printf("[WARN] Client '%s': google-services.json is required, skipping\n", client.AppName)
+			continue
+		}
+
+		// Extract education_number from google-services.json
+		eduNum, err := config.ExtractEducationNumber(gsFile)
+		if err != nil {
+			warnC.Printf("[WARN] Client '%s': failed to extract education_number: %v\n", client.AppName, err)
+			continue
+		}
+		client.EducationNumber = eduNum
+		if verbose {
+			infoC.Printf("[INFO] Client '%s': Education number: %d\n", client.AppName, eduNum)
+		}
+
 		// Resolve logo path
 		logoFilePath := resolveLogoPath(inputPath, client.AppLogo, logoPath)
 		if logoFilePath == "" {

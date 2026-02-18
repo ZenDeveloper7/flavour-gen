@@ -96,8 +96,8 @@ flavour-gen create \
 
 ```
 input-folder/
-├── data.json              # Single client or array
-├── google-services.json   # Optional
+├── data.json              # Single client or array (required)
+├── google-services.json   # Required (provides education_number)
 ├── logo1.png            # Client 1 logo
 └── logo2.png            # Client 2 logo
 ```

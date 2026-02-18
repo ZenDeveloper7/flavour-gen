@@ -5,7 +5,7 @@ The input folder should contain:
 ```
 input-folder/
 ├── data.json              # Required (single client or array)
-├── google-services.json   # Optional (provides education_number)
+├── google-services.json   # Required (provides education_number)
 └── app_logo.png         # Required (or use --logo flag)
 ```
 
@@ -78,7 +78,7 @@ For multiple clients, each client can have its own logo in the input folder.
 
 ## google-services.json
 
-Optional but provides:
+**Required** - provides:
 - `education_number` - Extracted from `project_info.project_id` or `project_number`
 
 Copy from Firebase console or existing flavour.
