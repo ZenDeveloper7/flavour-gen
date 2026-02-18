@@ -19,7 +19,7 @@ Welcome to flavour-gen documentation.
 ### Packages
 
 - [pkg/config](./pkg/config.md) - Configuration parsing
-- [pkg/flavor](./pkg/flavor.md) - Theme duplication
+- [pkg/flavor](./pkg/flavour.md) - Theme duplication
 - [pkg/icon](./pkg/icon.md) - Icon generation
 - [pkg/keystore](./pkg/keystore.md) - Keystore generation
 

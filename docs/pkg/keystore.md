@@ -10,7 +10,7 @@ Creates a JKS keystore file for Android app signing and updates `keystore.gradle
 
 ### `Generate(cd *config.ClientData, outputDir string, dryRun bool) (string, error)`
 
-Generates a Java keystore (JKS) for the flavor.
+Generates a Java keystore (JKS) for the flavour.
 
 **Process:**
 1. Create keystore directory

@@ -1,6 +1,6 @@
 # Flavor Package
 
-`pkg/flavor/flavor.go` handles theme duplication and Gradle file generation.
+`pkg/flavor/flavour.go` handles theme duplication and Gradle file generation.
 
 ## Overview
 

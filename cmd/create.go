@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/ZenDeveloper7/flavour-gen/pkg/config"
-	"github.com/ZenDeveloper7/flavour-gen/pkg/flavor"
+	flavour "github.com/ZenDeveloper7/flavour-gen/pkg/flavour"
 	"github.com/ZenDeveloper7/flavour-gen/pkg/icon"
 	"github.com/ZenDeveloper7/flavour-gen/pkg/keystore"
 )
@@ -58,7 +58,7 @@ func init() {
 
 func runCreate(cmd *cobra.Command, args []string) error {
 	if verbose {
-		infoC.Println("[INFO] Starting flavor generation")
+		infoC.Println("[INFO] Starting flavour generation")
 	}
 
 	// Check prerequisites
@@ -109,10 +109,10 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Set templates dir to Android project's app folder
-	flavor.SetTemplatesDir(filepath.Join(androidProject, "app"))
+	flavour.SetTemplatesDir(filepath.Join(androidProject, "app"))
 
 	// Validate theme exists
-	availableThemes, err := flavor.ListThemes()
+	availableThemes, err := flavour.ListThemes()
 	if err != nil {
 		return fmt.Errorf("list themes: %w", err)
 	}
@@ -158,7 +158,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Duplicate theme and create gradle
-	themeFiles, err := flavor.DuplicateTheme(clientData.ThemeID, clientData.ArchiveBasename, outputDir, clientData, dryRun)
+	themeFiles, err := flavour.DuplicateTheme(clientData.ThemeID, clientData.ArchiveBasename, outputDir, clientData, dryRun)
 	if err != nil {
 		return fmt.Errorf("duplicate theme: %w", err)
 	}
@@ -169,10 +169,10 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	// Update build_type.gradle and flavours.gradle
 	if !dryRun {
-		if err := flavor.AddFlavorToBuildType(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
+		if err := flavour.AddFlavorToBuildType(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
 			warnC.Printf("[WARN] build_type.gradle: %v\n", err)
 		}
-		if err := flavor.AddFlavorToFlavours(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
+		if err := flavour.AddFlavorToFlavours(clientData.ArchiveBasename, androidProject, dryRun); err != nil {
 			warnC.Printf("[WARN] flavours.gradle: %v\n", err)
 		}
 	}

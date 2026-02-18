@@ -8,9 +8,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "flavor-gen",
-	Short: "Flavor Generator CLI - Build Android app flavors",
-	Long:  `A tool to generate complete Android app flavor packages, including icons, keystores, and Gradle configuration.`,
+	Use:   "flavour-gen",
+	Short: "Flavour Generator CLI - Build Android app flavors",
+	Long:  `A tool to generate complete Android app flavour packages, including icons, keystores, and Gradle configuration.`,
 }
 
 func Execute() {

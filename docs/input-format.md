@@ -64,7 +64,7 @@ input-folder/
 
 Optional but required if using Firebase features.
 
-Copy from Firebase console or existing flavor.
+Copy from Firebase console or existing flavour.
 
 ## Computed Values
 

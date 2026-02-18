@@ -10,9 +10,9 @@ Sets up the Cobra command structure and enables color output.
 
 ```go
 var rootCmd = &cobra.Command{
-	Use:   "flavor-gen",
+	Use:   "flavour-gen",
 	Short: "Flavor Generator CLI - Build Android app flavors",
-	Long:  `A tool to generate complete Android app flavor packages...`,
+	Long:  `A tool to generate complete Android app flavour packages...`,
 }
 
 func Execute() {
@@ -25,7 +25,7 @@ func Execute() {
 
 ## Configuration
 
-- **Use:** `flavor-gen`
+- **Use:** `flavour-gen`
 - **Short:** Brief description
 - **Long:** Detailed description
 
