@@ -1,6 +1,8 @@
 # .goreleaser.yaml
 # Documentation: https://goreleaser.com/configuration
 
+version: 2
+
 project_name: flavour-gen
 
 before:
