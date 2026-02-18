@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 
@@ -20,13 +21,22 @@ import (
 
 var (
 	clientDataPath string
-	themeID        int
-	logoPath       string
-	bgColor        string
-	autoBG         bool
-	outputDir      string
-	dryRun         bool
-	verbose        bool
+	themeID       int
+	logoPath      string
+	bgColor       string
+	autoBG        bool
+	outputDir     string
+	dryRun        bool
+	verbose       bool
+)
+
+// Color helpers
+var (
+	infoC    = color.New(color.FgCyan)
+	warnC    = color.New(color.FgYellow)
+	successC = color.New(color.FgGreen)
+	errorC   = color.New(color.FgRed)
+	boldC    = color.New(color.Bold)
 )
 
 var createCmd = &cobra.Command{
@@ -52,7 +62,7 @@ func init() {
 
 func runCreate(cmd *cobra.Command, args []string) error {
 	if verbose {
-		fmt.Println("[INFO] Starting flavor generation")
+		infoC.Println("[INFO] Starting flavor generation")
 	}
 
 	// Step 1: Prerequisites
@@ -89,9 +99,9 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if verbose {
-		fmt.Printf("[INFO] Client: %s (%s)\n", clientData.AppName, clientData.ArchiveBasename)
-		fmt.Printf("[INFO] Theme: %d\n", themeID)
-		fmt.Printf("[INFO] Output: %s\n", outputDir)
+		infoC.Printf("[INFO] Client: %s (%s)\n", clientData.AppName, clientData.ArchiveBasename)
+		infoC.Printf("[INFO] Theme: %d\n", themeID)
+		infoC.Printf("[INFO] Output: %s\n", outputDir)
 	}
 
 	// Step 3: Create folder structure
@@ -109,7 +119,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	// Step 4: Process icons
 	if verbose {
-		fmt.Println("[INFO] Processing icons...")
+		infoC.Println("[INFO] Processing icons...")
 	}
 	bg, err := icon.GetBackgroundColor(bgColor, autoBG, logoPath)
 	if err != nil {
@@ -127,12 +137,12 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if verbose {
-		fmt.Printf("[INFO] Icons written: %s, %s\n", iconPaths.AdaptiveXML, notifPath)
+		infoC.Printf("[INFO] Icons written: %s, %s\n", iconPaths.AdaptiveXML, notifPath)
 	}
 
 	// Step 5: Duplicate theme and generate Gradle files
 	if verbose {
-		fmt.Println("[INFO] Duplicating theme...")
+		infoC.Println("[INFO] Duplicating theme...")
 	}
 	themeFiles, err := flavor.DuplicateTheme(themeID, clientData.ArchiveBasename, outputDir, clientData, dryRun)
 	if err != nil {
@@ -140,19 +150,19 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if verbose {
-		fmt.Printf("[INFO] Theme files: %v\n", themeFiles.GradleFile)
+		infoC.Printf("[INFO] Theme files: %v\n", themeFiles.GradleFile)
 	}
 
 	// Step 6: Generate keystore
 	if verbose {
-		fmt.Println("[INFO] Generating keystore...")
+		infoC.Println("[INFO] Generating keystore...")
 	}
 	keystorePath, err := keystore.Generate(clientData, outputDir, dryRun)
 	if err != nil {
 		return fmt.Errorf("keystore: %w", err)
 	}
 	if verbose && keystorePath != "" {
-		fmt.Printf("[INFO] Keystore: %s\n", keystorePath)
+		infoC.Printf("[INFO] Keystore: %s\n", keystorePath)
 	}
 
 	// Step 7: Copy google-services.json if available and firebase URL provided
@@ -166,16 +176,18 @@ func runCreate(cmd *cobra.Command, args []string) error {
 				}
 			}
 			if verbose {
-				fmt.Println("[INFO] google-services.json copied")
+				infoC.Println("[INFO] google-services.json copied")
 			}
 		} else if verbose {
-			fmt.Println("[WARN] google-services.json not found in theme template")
+			warnC.Println("[WARN] google-services.json not found in theme template")
 		}
 	}
 
-	fmt.Printf("✅ Flavor created: %s\n", clientData.ArchiveBasename)
+	// Success output
+	boldC.Print("✅ ")
+	successC.Printf("Flavor created: %s\n", clientData.ArchiveBasename)
 	if dryRun {
-		fmt.Println("(dry-run mode — no files written)")
+		warnC.Println("(dry-run mode — no files written)")
 	}
 	return nil
 }
@@ -187,7 +199,7 @@ func checkPrerequisites() error {
 	}
 	// Check gradle exists (optional - only warn)
 	if _, err := exec.LookPath("gradle"); err != nil {
-		fmt.Println("[WARN] Gradle not found (optional - only needed for validation)")
+		warnC.Println("[WARN] Gradle not found (optional - only needed for validation)")
 	}
 	return nil
 }
