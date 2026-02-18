@@ -13,23 +13,20 @@ import (
 	"github.com/disintegration/imaging"
 )
 
-// createCircularIcon creates a circular icon by cropping the square image to a circle
+// createCircularIcon creates a circular icon with white background and transparent corners
 func createCircularIcon(img image.Image, size int) image.Image {
-	// Resize to target size
+	// Resize to target size (the logo with white background)
 	resized := imaging.Resize(img, size, size, imaging.Lanczos)
 	
-	// Create output image with transparent background
+	// Create output image with transparent background (RGBA)
 	output := image.NewRGBA(image.Rect(0, 0, size, size))
 	
-	// Fill with white background
-	draw.Draw(output, output.Bounds(), &image.Uniform{C: color.RGBA{255, 255, 255, 255}}, image.Point{}, draw.Src)
-	
-	// Calculate center and radius
+	// Calculate center and radius (slightly smaller to ensure circle fits)
 	centerX := float64(size) / 2
 	centerY := float64(size) / 2
 	radius := float64(size) / 2
 	
-	// Copy pixels within circle
+	// Copy pixels - white background inside circle, transparent outside
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
 			dx := float64(x) - centerX
@@ -37,11 +34,14 @@ func createCircularIcon(img image.Image, size int) image.Image {
 			dist := math.Sqrt(dx*dx + dy*dy)
 			
 			if dist <= radius {
-				// Inside circle - copy pixel
+				// Inside circle - copy pixel from resized image (which has white background)
 				pixel := resized.At(x, y)
-				output.Set(x, y, pixel)
+				r, g, b, a := pixel.RGBA()
+				output.SetRGBA(x, y, color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)})
+			} else {
+				// Outside circle - transparent
+				output.SetRGBA(x, y, color.RGBA{0, 0, 0, 0})
 			}
-			// Outside circle stays transparent
 		}
 	}
 	
