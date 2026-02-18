@@ -1,15 +1,15 @@
 {
-  "app_name": "Physics Setu",
-  "archivebasename": "physics_setu",
-  "package_name": "com.ydcfzb.zgizxw",
+  "app_name": "My App",
+  "archivebasename": "my_app",
+  "package_name": "com.mycompany.myapp",
   "version_name": "1.0.0",
   "version_code": 0,
   "theme_id": 1,
   "app_logo": "app_logo.png",
   "education_number": 20,
-  "base_url": "https://physicssetuapi.akamai.net.in/",
-  "test_base_url": "https://physicssetuapi.akamai.net.in/",
-  "firebase_url": "https://physicssetuappx.firebaseio.com/",
-  "dynamic_link_domain": "https://physicssetu.classx.co.in/",
-  "dynamic_link_prefix": "https://physicssetu.page.link"
+  "base_url": "https://api.example.com/",
+  "test_base_url": "https://api.example.com/",
+  "firebase_url": "https://myapp.firebaseio.com/",
+  "dynamic_link_domain": "https://example.com/",
+  "dynamic_link_prefix": "https://myapp.page.link"
 }

@@ -11,7 +11,7 @@ Defines the `ClientData` struct and computes derived fields from input JSON.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `app_name` | string | Yes | Display name |
-| `archivebasename` | string | Yes | Archive name (e.g., `physics_setu`) |
+| `archivebasename` | string | Yes | Archive name (e.g., `my_app`) |
 | `package_name` | string | Yes | Android package |
 | `version_name` | string | Yes | Version string |
 | `version_code` | int | Yes | Version code |
@@ -49,8 +49,8 @@ Validates required fields. Returns error if any required field is missing.
 
 ```json
 {
-  "app_name": "Physics Setu",
-  "archivebasename": "physics_setu",
+  "app_name": "My App",
+  "archivebasename": "my_app",
   "package_name": "com.ydcfzb.zgizxw",
   "theme_id": 1,
   "app_logo": "app_logo.png",

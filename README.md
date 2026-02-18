@@ -64,7 +64,7 @@ client-folder/
 | Field | Required | Description |
 |-------|----------|-------------|
 | `app_name` | ✅ | Display name of the app |
-| `archivebasename` | ✅ | Archive name (e.g., `physics_setu`) |
+| `archivebasename` | ✅ | Archive name (e.g., `my_app`) |
 | `package_name` | ✅ | Android package (e.g., `com.ydcfzb.zgizxw`) |
 | `version_name` | ✅ | Version string (e.g., `1.0.0`) |
 | `version_code` | ✅ | Version code (integer) |
@@ -81,19 +81,19 @@ client-folder/
 
 ```json
 {
-  "app_name": "Physics Setu",
-  "archivebasename": "physics_setu",
+  "app_name": "My App",
+  "archivebasename": "my_app",
   "package_name": "com.ydcfzb.zgizxw",
   "version_name": "1.0.0",
   "version_code": 0,
   "theme_id": 1,
   "app_logo": "app_logo.png",
   "education_number": 20,
-  "base_url": "https://physicssetuapi.akamai.net.in/",
-  "test_base_url": "https://physicssetuapi.akamai.net.in/",
-  "firebase_url": "https://physicssetuappx.firebaseio.com/",
-  "dynamic_link_domain": "https://physicssetu.classx.co.in/",
-  "dynamic_link_prefix": "https://physicssetu.page.link"
+  "base_url": "https://api.example.com/",
+  "test_base_url": "https://api.example.com/",
+  "firebase_url": "https://myapp.firebaseio.com/",
+  "dynamic_link_domain": "https://example.com/",
+  "dynamic_link_prefix": "https://myapp.page.link"
 }
 ```
 
