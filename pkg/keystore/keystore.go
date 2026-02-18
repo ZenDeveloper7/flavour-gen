@@ -57,25 +57,48 @@ func Generate(cd *config.ClientData, outputDir string, dryRun bool) (string, err
 			// Check if this signing config already exists
 			configName := cd.ArchiveBasename
 			if !strings.Contains(string(content), configName+" {") {
-				// Add new signing config
+				// Add new signing config AFTER the last closing brace
 				newEntry := fmt.Sprintf(`
-        %s {
-            storeFile file("keystore/%s.jks")
-            storePassword "%s"
-            keyAlias "%s"
-            keyPassword "%s"
-        }
+    %s {
+        storeFile file("keystore/%s.jks")
+        storePassword "%s"
+        keyAlias "%s"
+        keyPassword "%s"
+    }
 `, configName, configName, configName, configName, configName)
 				
-				// Find position to insert - before the closing brace of signingConfigs
+				// Find position to insert - AFTER the closing brace of signingConfigs
 				existing := string(content)
-				closingPos := strings.LastIndex(existing, "    }")
-				if closingPos > 0 {
-					newContent := existing[:closingPos] + newEntry + existing[closingPos:]
-					err = os.WriteFile(keystoreGradlePath, []byte(newContent), 0644)
-					if err != nil {
-						return keystorePath, fmt.Errorf("update keystore.gradle: %w", err)
+				
+				// Find the closing of signingConfigs block - look for "    }" that closes the last signing config
+				// and insert AFTER it
+				lines := strings.Split(existing, "\n")
+				var newLines []string
+				added := false
+				
+				for i, line := range lines {
+					newLines = append(newLines, line)
+					// After the closing brace of a signing config, add our new config
+					// Look for "        }" which closes a signing config block
+					if strings.Contains(line, "        }") && !added {
+						// Skip adding if next line already has our config
+						if i+1 < len(lines) && strings.Contains(lines[i+1], configName) {
+							continue
+						}
+						newLines = append(newLines, newEntry)
+						added = true
 					}
+				}
+				
+				if !added {
+					// Fallback: just append
+					newLines = append(newLines, newEntry)
+				}
+				
+				newContent := strings.Join(newLines, "\n")
+				err = os.WriteFile(keystoreGradlePath, []byte(newContent), 0644)
+				if err != nil {
+					return keystorePath, fmt.Errorf("update keystore.gradle: %w", err)
 				}
 			}
 		}

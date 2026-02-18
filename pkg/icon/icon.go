@@ -73,9 +73,10 @@ type IconPaths struct {
 	NotifXhdpi    string
 	NotifXXhdpi   string
 	NotifXXXhdpi  string
+	AppLogoWebp   string
 }
 
-// GenerateAppIcon creates the adaptive launcher icon and legacy PNGs
+// GenerateAppIcon creates the adaptive launcher icon, 512x512 logo, and legacy PNGs
 func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun bool) (IconPaths, error) {
 	var paths IconPaths
 
@@ -85,15 +86,36 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 	}
 	fg := imaging.Resize(logo, 512, 512, imaging.Lanczos)
 
+	// Create background layer
 	bgImg := image.NewRGBA(image.Rect(0, 0, 512, 512))
 	draw.Draw(bgImg, bgImg.Bounds(), &image.Uniform{C: bg}, image.Point{}, draw.Src)
 
+	// Create combined foreground+background for launcher icon
 	combined := image.NewRGBA(bgImg.Bounds())
 	draw.Draw(combined, bgImg.Bounds(), bgImg, image.Point{}, draw.Src)
 	offset := (512 - fg.Bounds().Dx()) / 2
 	draw.Draw(combined, fg.Bounds().Add(image.Pt(offset, offset)), fg, image.Point{}, draw.Over)
 
 	if !dryRun {
+		// Create drawable folder for 512x512 app_logo.webp
+		drawableDir := filepath.Join(outputDir, "app/src", baseName, "res/drawable")
+		if err := os.MkdirAll(drawableDir, 0755); err != nil {
+			return paths, err
+		}
+		
+		// Save 512x512 app_logo as PNG (for now - can convert to WEBP if needed)
+		appLogoPath := filepath.Join(drawableDir, "app_logo.png")
+		f, err := os.Create(appLogoPath)
+		if err != nil {
+			return paths, err
+		}
+		defer f.Close()
+		if err := png.Encode(f, fg); err != nil {
+			return paths, err
+		}
+		paths.AppLogoWebp = appLogoPath
+
+		// Create adaptive icon XML
 		xmlDir := filepath.Join(outputDir, "app/src", baseName, "res/mipmap-anydpi-v26")
 		if err := os.MkdirAll(xmlDir, 0755); err != nil {
 			return paths, err
@@ -106,6 +128,7 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 		paths.AdaptiveXML = xmlPath
 	}
 
+	// Create legacy launcher icons at different densities
 	densities := []struct {
 		name string
 		size int
@@ -159,12 +182,38 @@ func generateAdaptiveXML(name string) string {
 </adaptive-icon>`, name)
 }
 
-// GenerateNotificationIcon creates a transparent notification icon
+// GenerateNotificationIcon creates a transparent notification icon (white logo on transparent)
 func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool) (string, error) {
 	logo, err := imaging.Open(logoPath)
 	if err != nil {
 		return "", fmt.Errorf("load logo: %w", err)
 	}
+
+	// Convert to white logo on transparent background
+	// This makes it suitable for notification icons
+	logo = imaging.Grayscale(logo)
+	logo = imaging.AdjustBrightness(logo, 20) // Brighten it a bit
+	logo = imaging.Resize(logo, 512, 512, imaging.Lanczos)
+
+	// Create transparent image
+	transparent := image.NewRGBA(logo.Bounds())
+	draw.Draw(transparent, transparent.Bounds(), &image.Uniform{color.RGBA{0, 0, 0, 0}}, image.Point{}, draw.Src)
+
+	// Draw white logo on transparent background
+	whiteLogo := image.NewRGBA(logo.Bounds())
+	for y := 0; y < logo.Bounds().Dy(); y++ {
+		for x := 0; x < logo.Bounds().Dx(); x++ {
+			px := logo.At(x, y)
+			r, g, b, _ := px.RGBA()
+			// If pixel is not white, make it white
+			if r < 65535 || g < 65535 || b < 65535 {
+				whiteLogo.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
+			} else {
+				whiteLogo.SetRGBA(x, y, color.RGBA{255, 255, 255, 0})
+			}
+		}
+	}
+
 	densities := []struct{ name string; size int }{
 		{"mdpi", 24},
 		{"hdpi", 36},
@@ -175,7 +224,7 @@ func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool)
 	outputBase := filepath.Join(outputDir, "app/src", baseName, "res")
 	var lastPath string
 	for _, d := range densities {
-		img := imaging.Resize(logo, d.size, d.size, imaging.Lanczos)
+		img := imaging.Resize(whiteLogo, d.size, d.size, imaging.Lanczos)
 		dir := filepath.Join(outputBase, "drawable-"+d.name)
 		if !dryRun {
 			if err := os.MkdirAll(dir, 0755); err != nil {
@@ -187,7 +236,7 @@ func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool)
 				return "", err
 			}
 			defer f.Close()
-			// Encode as PNG for now (MVP)
+			// Encode as PNG for now (can add WEBP encoding later)
 			if err := png.Encode(f, img); err != nil {
 				return "", err
 			}

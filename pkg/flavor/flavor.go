@@ -82,9 +82,18 @@ func DuplicateTheme(themeID int, archiveBasename string, outputDir string, cd *c
 			text = regexp.MustCompile(`//Education \d+`).ReplaceAllString(text, fmt.Sprintf("//Education %d", cd.EducationNumber))
 		}
 
-		// Replace the flavor name (e.g., appx_theme1 -> knr_logics_clone)
-		// This handles both the flavor block name and archivesBaseName
-		text = strings.ReplaceAll(text, fmt.Sprintf("appx_theme%d", themeID), cd.ArchiveBasename)
+		// Replace the flavor name - need to match full string including _km suffix
+		// e.g., appx_theme1_km -> knr_logics_clone (exact, no _km)
+		oldFlavorName := fmt.Sprintf("appx_theme%d_km", themeID)
+		text = strings.ReplaceAll(text, oldFlavorName, cd.ArchiveBasename)
+		// Also replace just appx_theme{id} for other references
+		oldFlavorName = fmt.Sprintf("appx_theme%d", themeID)
+		text = strings.ReplaceAll(text, oldFlavorName, cd.ArchiveBasename)
+
+		// Update strings.xml with client data
+		if err := updateStringsXML(dstSrcDir, cd); err != nil {
+			return files, fmt.Errorf("update strings.xml: %w", err)
+		}
 
 		// Replace applicationId - find the line and replace the value
 		text = replaceGradleLine(text, "applicationId", cd.PackageName)
@@ -140,22 +149,36 @@ func AddFlavorToBuildType(archiveBasename string, projectRoot string, dryRun boo
 		return nil // Already exists
 	}
 
-	// Add the entry before the closing brace of release block
-	newEntry := fmt.Sprintf(`            productFlavors.%s.signingConfig signingConfigs.%s`, archiveBasename, archiveBasename)
+	// Find the release block and add the entry inside it
 	text := string(content)
+	newEntry := fmt.Sprintf(`            productFlavors.%s.signingConfig signingConfigs.%s`, archiveBasename, archiveBasename)
 	
-	// Find the last closing brace and insert before it
+	// Find the release {  and add after the last productFlavors entry inside release block
+	// Look for the pattern of release block
 	lines := strings.Split(text, "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		if strings.TrimSpace(lines[i]) == "}" {
-			// Insert before this closing brace
+	releaseStarted := false
+	inserted := false
+	
+	for i, line := range lines {
+		if strings.Contains(line, "release {") {
+			releaseStarted = true
+			continue
+		}
+		if releaseStarted && strings.TrimSpace(line) == "}" {
+			// End of release block - insert before this
 			var newLines []string
 			newLines = append(newLines, lines[:i]...)
 			newLines = append(newLines, newEntry)
 			newLines = append(newLines, lines[i:]...)
 			text = strings.Join(newLines, "\n")
+			inserted = true
 			break
 		}
+	}
+	
+	if !inserted {
+		// Fallback: just append at end
+		text = strings.TrimRight(text, "\n") + "\n" + newEntry + "\n"
 	}
 
 	if !dryRun {
@@ -400,4 +423,38 @@ func ListThemes() ([]int, error) {
 		}
 	}
 	return themes, nil
+}
+
+// updateStringsXML updates strings.xml in the duplicated theme folder with client data
+func updateStringsXML(themeDir string, cd *config.ClientData) error {
+	stringsPath := filepath.Join(themeDir, "res/values/strings.xml")
+	if _, err := os.Stat(stringsPath); err != nil {
+		// strings.xml might not exist, skip
+		return nil
+	}
+
+	content, err := os.ReadFile(stringsPath)
+	if err != nil {
+		return err
+	}
+
+	text := string(content)
+
+	// Update dynamic_link_host value from dynamic_link_prefix
+	// e.g., https://physicssetu.page.link -> physicssetu.page.link
+	if cd.DynamicLinkPrefix != "" {
+		// Extract host from URL
+		host := strings.TrimPrefix(cd.DynamicLinkPrefix, "https://")
+		host = strings.TrimSuffix(host, "/")
+		// Simple string replacement of old value to new value
+		text = strings.Replace(text, ">appxcore.com<", ">"+host+"<", 1)
+	}
+
+	// Update app_name if there's a string resource for it
+	if cd.AppName != "" {
+		// Find and replace app_name value
+		text = strings.Replace(text, ">appx_theme1<", ">"+cd.AppName+"<", 1)
+	}
+
+	return os.WriteFile(stringsPath, []byte(text), 0644)
 }
