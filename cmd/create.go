@@ -181,13 +181,13 @@ func runCreate(cmd *cobra.Command, args []string) error {
 }
 
 func checkPrerequisites() error {
-	// Check keytool exists
+	// Check keytool exists (required)
 	if _, err := exec.LookPath("keytool"); err != nil {
 		return errors.New("keytool not installed. Install Java JDK")
 	}
-	// Check gradle exists (optional for validation)
+	// Check gradle exists (optional - only warn)
 	if _, err := exec.LookPath("gradle"); err != nil {
-		return errors.New("gradle not installed. Install Gradle SDK")
+		fmt.Println("[WARN] Gradle not found (optional - only needed for validation)")
 	}
 	return nil
 }

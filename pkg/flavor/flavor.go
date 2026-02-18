@@ -11,8 +11,18 @@ import (
 )
 
 var (
-	templatesDir = "templates"
+	templatesDir = getTemplatesDir()
 )
+
+func getTemplatesDir() string {
+	// Allow env override
+	if dir := os.Getenv("FLAVOUR_TEMPLATES"); dir != "" {
+		return dir
+	}
+	// Default to current working directory
+	cwd, _ := os.Getwd()
+	return filepath.Join(cwd, "templates")
+}
 
 type ThemeFiles struct {
 	ThemeSampleDir string
