@@ -124,14 +124,6 @@ func GenerateAppIcon(logoPath, baseName, outputDir string, bg color.RGBA, dryRun
 			paths.AppLogo = appLogoPath
 		}
 
-		// Save 512x512 foreground (transparent) for adaptive icons
-		foregroundPath := filepath.Join(drawableDir, "ic_launcher_foreground.png")
-		if f, err := os.Create(foregroundPath); err == nil {
-			png.Encode(f, fg)
-			f.Close()
-			paths.Foreground512 = foregroundPath
-		}
-
 		// Create adaptive icon XML for ic_launcher
 		xmlDir := filepath.Join(resDir, "mipmap-anydpi-v26")
 		os.MkdirAll(xmlDir, 0755)
