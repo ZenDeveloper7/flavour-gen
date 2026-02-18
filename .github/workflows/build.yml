@@ -65,9 +65,13 @@ jobs:
       - name: Assemble release assets
         run: |
           mkdir -p assets
-          cp artifacts/flavour-gen-linux-amd64 assets/
-          cp artifacts/flavour-gen-darwin-amd64 assets/
-          cp artifacts/flavour-gen-windows-amd64.exe assets/
+          # Find the actual binary files (could be in subdirectories)
+          LINUX_BIN=$(find artifacts -name "flavour-gen-linux-amd64" -type f | head -1)
+          DARWIN_BIN=$(find artifacts -name "flavour-gen-darwin-amd64" -type f | head -1)
+          WINDOWS_BIN=$(find artifacts -name "flavour-gen-windows-amd64.exe" -type f | head -1)
+          cp "$LINUX_BIN" assets/ || { echo "Linux binary not found"; exit 1; }
+          cp "$DARWIN_BIN" assets/ || { echo "Darwin binary not found"; exit 1; }
+          cp "$WINDOWS_BIN" assets/ || { echo "Windows binary not found"; exit 1; }
           cd assets && sha256sum * > checksums.txt
 
       - name: Create Release
@@ -98,9 +102,13 @@ jobs:
       - name: Prepare public folder
         run: |
           mkdir -p public
-          cp artifacts/flavour-gen-linux-amd64 public/
-          cp artifacts/flavour-gen-darwin-amd64 public/
-          cp artifacts/flavour-gen-windows-amd64.exe public/
+          # Find the actual binary files
+          LINUX_BIN=$(find artifacts -name "flavour-gen-linux-amd64" -type f | head -1)
+          DARWIN_BIN=$(find artifacts -name "flavour-gen-darwin-amd64" -type f | head -1)
+          WINDOWS_BIN=$(find artifacts -name "flavour-gen-windows-amd64.exe" -type f | head -1)
+          cp "$LINUX_BIN" public/
+          cp "$DARWIN_BIN" public/
+          cp "$WINDOWS_BIN" public/
           cd public && sha256sum * > checksums.txt
           # Create a simple install script
           cat > install.sh << 'EOF'
