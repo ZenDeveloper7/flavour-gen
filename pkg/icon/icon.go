@@ -17,22 +17,22 @@ import (
 func createCircularIcon(img image.Image, size int) image.Image {
 	// Resize to target size (the logo with white background)
 	resized := imaging.Resize(img, size, size, imaging.Lanczos)
-	
+
 	// Create output image with transparent background (RGBA)
 	output := image.NewRGBA(image.Rect(0, 0, size, size))
-	
+
 	// Calculate center and radius (slightly smaller to ensure circle fits)
 	centerX := float64(size) / 2
 	centerY := float64(size) / 2
 	radius := float64(size) / 2
-	
+
 	// Copy pixels - white background inside circle, transparent outside
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
 			dx := float64(x) - centerX
 			dy := float64(y) - centerY
 			dist := math.Sqrt(dx*dx + dy*dy)
-			
+
 			if dist <= radius {
 				// Inside circle - copy pixel from resized image (which has white background)
 				pixel := resized.At(x, y)
@@ -44,7 +44,7 @@ func createCircularIcon(img image.Image, size int) image.Image {
 			}
 		}
 	}
-	
+
 	return output
 }
 
@@ -73,20 +73,20 @@ func parseHex(s string) uint8 {
 
 // IconPaths holds output file paths for generated icons
 type IconPaths struct {
-	AdaptiveXML     string
-	LegacyMDpi     string
-	LegacyHdpi     string
-	LegacyXhdpi    string
-	LegacyXXhdpi   string
-	LegacyXXXhdpi  string
-	Foreground512  string // 512x512 foreground
-	Playstore      string // ic_launcher-playstore.png
-	NotifMDpi      string
-	NotifHdpi      string
-	NotifXhdpi     string
-	NotifXXhdpi    string
-	NotifXXXhdpi   string
-	AppLogo        string
+	AdaptiveXML   string
+	LegacyMDpi    string
+	LegacyHdpi    string
+	LegacyXhdpi   string
+	LegacyXXhdpi  string
+	LegacyXXXhdpi string
+	Foreground512 string // 512x512 foreground
+	Playstore     string // ic_launcher-playstore.png
+	NotifMDpi     string
+	NotifHdpi     string
+	NotifXhdpi    string
+	NotifXXhdpi   string
+	NotifXXXhdpi  string
+	AppLogo       string
 }
 
 // GenerateAppIcon creates launcher icons: adaptive XML + legacy PNGs + playstore icon
@@ -221,9 +221,9 @@ func setLegacyPath(paths *IconPaths, density, path string) {
 
 func generateAdaptiveXML(name string) string {
 	// Use the name parameter for the foreground drawable
-	foreground := fmt.Sprintf("@drawable/ic_launcher_foreground")
+	foreground := "@drawable/ic_launcher_foreground"
 	if name != "ic_launcher" {
-		foreground = fmt.Sprintf("@drawable/ic_launcher_foreground")
+		foreground = "@drawable/ic_launcher_foreground"
 	}
 	return fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -258,7 +258,10 @@ func GenerateNotificationIcon(logoPath, baseName, outputDir string, dryRun bool)
 		}
 	}
 
-	densities := []struct{ name string; size int }{
+	densities := []struct {
+		name string
+		size int
+	}{
 		{"mdpi", 24}, {"hdpi", 36}, {"xhdpi", 48}, {"xxhdpi", 72}, {"xxxhdpi", 96},
 	}
 	outputBase := filepath.Join(outputDir, "app/src", baseName, "res")

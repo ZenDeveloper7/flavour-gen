@@ -19,12 +19,12 @@ import (
 )
 
 var (
-	inputPath  string
-	logoPath   string
-	bgColor    string
-	outputDir  string
-	dryRun     bool
-	verbose    bool
+	inputPath string
+	logoPath  string
+	bgColor   string
+	outputDir string
+	dryRun    bool
+	verbose   bool
 )
 
 // Color helpers
@@ -152,7 +152,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		}
 
 		// Extract education_number from google-services.json if available
-		gsFile := filepath.Join(inputPath, "google-services.json")
+		gsFile = filepath.Join(inputPath, "google-services.json")
 		if _, err := os.Stat(gsFile); err == nil {
 			if eduNum, err := config.ExtractEducationNumber(gsFile); err == nil {
 				client.EducationNumber = eduNum
