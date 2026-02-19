@@ -194,7 +194,8 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		}
 
 		// Duplicate theme and create gradle
-		_, themeErr := flavour.DuplicateTheme(client.ThemeID, client.ArchiveBasename, clientOutputDir, &client, dryRun)
+		var themeErr error
+		_, themeErr = flavour.DuplicateTheme(client.ThemeID, client.ArchiveBasename, clientOutputDir, &client, dryRun)
 		if themeErr != nil {
 			warnC.Printf("[WARN] Client '%s': duplicate theme: %v\n", client.AppName, err)
 			continue
