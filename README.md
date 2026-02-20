@@ -69,6 +69,8 @@ flavour-gen create \
 }
 ```
 
+**Note:** `app_logo` can be any common image format (PNG, JPEG, JPG, WEBP, GIF, BMP, TIFF).
+
 ### Multiple Clients (data.json)
 
 ```json

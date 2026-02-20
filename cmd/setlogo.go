@@ -38,13 +38,12 @@ func runSetLogo(cmd *cobra.Command, args []string) error {
 		infoC.Printf("[INFO] Setting logo for flavour: %s\n", flavourName)
 	}
 
-	// Validate logo file
+	// Validate logo file exists
 	if _, err := os.Stat(logoFile); err != nil {
 		return fmt.Errorf("logo file not found: %w", err)
 	}
-	if ext := strings.ToLower(filepath.Ext(logoFile)); ext != ".png" {
-		return errors.New("logo must be PNG")
-	}
+	// Note: Any image format supported by the imaging library is accepted
+	// (PNG, JPEG, WEBP, GIF, TIFF, BMP, etc.)
 
 	// Find Android project from output-dir or use current directory
 	// For set-logo, we need to find the project automatically

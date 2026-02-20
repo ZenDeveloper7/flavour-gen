@@ -70,9 +70,9 @@ The JSON file supports **both single client and multiple clients**:
 
 ## Logo Requirements
 
-- **Format:** PNG
-- **Size:** Recommended 512x512 or larger
-- **Placement:** In input folder (path relative to data.json)
+- **Format:** Any common image format (PNG, JPEG, JPG, WEBP, GIF, BMP, TIFF)
+- **Size:** Recommended 512x512 or larger (high resolution preferred)
+- **Placement:** In input folder (path relative to data.json) or via `--logo` flag
 
 For multiple clients, each client can have its own logo in the input folder.
 

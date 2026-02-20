@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -44,7 +43,7 @@ var createCmd = &cobra.Command{
 
 func init() {
 	createCmd.Flags().StringVar(&inputPath, "input", "", "Input folder with data.json [required]")
-	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo PNG file [optional]")
+	createCmd.Flags().StringVar(&logoPath, "logo", "", "Logo image file (PNG, JPEG, WEBP, etc.) [optional]")
 	createCmd.Flags().StringVar(&bgColor, "bg-color", "", "Background color #RRGGBB (default: white)")
 	createCmd.Flags().StringVar(&outputDir, "output-dir", "./output", "Output directory")
 	createCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without writing files")
@@ -136,10 +135,8 @@ func runCreate(cmd *cobra.Command, args []string) error {
 			warnC.Printf("[WARN] Client '%s': logo not found, skipping\n", client.AppName)
 			continue
 		}
-		if ext := strings.ToLower(filepath.Ext(logoFilePath)); ext != ".png" {
-			warnC.Printf("[WARN] Client '%s': logo must be PNG, skipping\n", client.AppName)
-			continue
-		}
+		// Note: Any image format supported by the imaging library is accepted
+		// (PNG, JPEG, WEBP, GIF, TIFF, BMP, etc.)
 
 		// Validate theme exists
 		availableThemes, err := flavour.ListThemes()
