@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build and Release
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
 
 jobs:
   build:
@@ -65,7 +64,6 @@ jobs:
       - name: Assemble release assets
         run: |
           mkdir -p assets
-          # Find the actual binary files (could be in subdirectories)
           LINUX_BIN=$(find artifacts -name "flavour-gen-linux-amd64" -type f | head -1)
           DARWIN_BIN=$(find artifacts -name "flavour-gen-darwin-amd64" -type f | head -1)
           WINDOWS_BIN=$(find artifacts -name "flavour-gen-windows-amd64.exe" -type f | head -1)
@@ -81,65 +79,9 @@ jobs:
           name: Release ${{ github.ref_name }}
           body: |
             Automated build release.
-          draft: true
+          draft: false
+          make_latest: true
           files: |
             assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  deploy-pages:
-    needs: release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Prepare public folder
-        run: |
-          mkdir -p public
-          # Find the actual binary files
-          LINUX_BIN=$(find artifacts -name "flavour-gen-linux-amd64" -type f | head -1)
-          DARWIN_BIN=$(find artifacts -name "flavour-gen-darwin-amd64" -type f | head -1)
-          WINDOWS_BIN=$(find artifacts -name "flavour-gen-windows-amd64.exe" -type f | head -1)
-          cp "$LINUX_BIN" public/
-          cp "$DARWIN_BIN" public/
-          cp "$WINDOWS_BIN" public/
-          cd public && sha256sum * > checksums.txt
-          # Create a simple install script
-          cat > install.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-          ARCH="$(uname -m)"
-          case "$ARCH" in
-            x86_64) ARCH="amd64" ;;
-            arm64) ARCH="arm64" ;;
-            *) echo "Unsupported arch: $ARCH"; exit 1 ;;
-          esac
-          BINARY="flavour-gen-$OS-$ARCH"
-          [ "$OS" = "windows" ] && BINARY="$BINARY.exe"
-          URL="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/gh-pages/$BINARY"
-          echo "Downloading $URL..."
-          curl -sSL "$URL" -o "/tmp/$BINARY" || { echo "Download failed"; exit 1; }
-          chmod +x "/tmp/$BINARY"
-          DEST="/usr/local/bin/flavour-gen"
-          if [ -w "$(dirname "$DEST")" ]; then
-            sudo mv "/tmp/$BINARY" "$DEST"
-          else
-            mv "/tmp/$BINARY" "$DEST"
-          fi
-          echo "Installed to $DEST"
-          EOF
-          chmod +x install.sh
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          force_orphan: true   # create gh-pages branch if it doesn't exist
