@@ -1,0 +1,3 @@
+38d48bffee0a61d6a217d7f3981ed905f2041295a10befaafbbeb54670e345ea  flavour-gen-darwin-amd64
+8b712dc4bdfee59f4569c8656d2dbf6a6588c1fcac61d881bb8d6d820c60dea8  flavour-gen-linux-amd64
+317b8830ad05a4d8f4b21a8095536affb83169cf9110e3261517471c166b4eb2  flavour-gen-windows-amd64.exe
