@@ -19,6 +19,11 @@ builds:
       - arm64
     env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/ZenDeveloper7/flavour-gen/cmd.Version={{.Version}}
+      - -X github.com/ZenDeveloper7/flavour-gen/cmd.BuildTime={{.Date}}
+      - -X github.com/ZenDeveloper7/flavour-gen/cmd.GitCommit={{.Commit}}
 
 archives:
   - id: default

@@ -41,7 +41,11 @@ jobs:
 
       - name: Build
         run: |
-          go build -o ${{ matrix.binary }} .
+          VERSION="${GITHUB_REF_NAME}"
+          COMMIT="${GITHUB_SHA::7}"
+          DATE=$(date -u +%Y-%m-%d-%H:%M:%S)
+          LDFLAGS="-s -w -X github.com/ZenDeveloper7/flavour-gen/cmd.Version=${VERSION} -X github.com/ZenDeveloper7/flavour-gen/cmd.BuildTime=${DATE} -X github.com/ZenDeveloper7/flavour-gen/cmd.GitCommit=${COMMIT}"
+          go build -ldflags="${LDFLAGS}" -o ${{ matrix.binary }} .
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}

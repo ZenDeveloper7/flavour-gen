@@ -106,6 +106,35 @@ input-folder/
 
 ## Usage
 
+### Check Version
+
+```bash
+flavour-gen version
+```
+
+Output:
+```
+🔍 Flavour Generator CLI
+  Version:   v2026.2.20
+  Build:     2026-02-20-18:30:00
+  Commit:    517d25f
+  Go:        go1.21
+  OS/Arch:   linux/amd64
+```
+
+### Check System Status
+
+```bash
+flavour-gen status
+```
+
+Shows:
+- 🔍 System prerequisites (keytool, gradle)
+- 📁 Android project detection
+- 🎨 Available themes
+- ⚙️ Environment configuration
+- 📊 Readiness summary
+
 ```bash
 # Basic usage
 flavour-gen create --input ./client-data --output-dir ./app/output
